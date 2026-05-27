@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime
+import enum
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime ,Enum as SAEnum
 from sqlalchemy.orm import relationship
 from .database import Base
 from datetime import datetime
@@ -74,18 +75,29 @@ class Order(Base):
     due_date = Column(Date)
 
 
-class Invoice(Base):
+class InvoiceStatus(str, enum.Enum):
+    pending = "pending"
+    paid = "paid"
+    unpaid = "unpaid"
 
+
+class PaymentType(str, enum.Enum):
+    cash = "cash"
+    online = "online"
+
+
+class Invoice(Base):
     __tablename__ = "invoices"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id           = Column(Integer, primary_key=True, index=True)
+    customer_id  = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    order_id     = Column(Integer, ForeignKey("orders.id"),    nullable=False)
+    amount       = Column(Float,   nullable=False)
+    status       = Column(SAEnum(InvoiceStatus), default=InvoiceStatus.pending, nullable=False)
+    payment_type = Column(SAEnum(PaymentType),   default=PaymentType.cash,      nullable=False)
+    notes        = Column(String(500), nullable=True)
+    created_at   = Column(DateTime(timezone=True))
+    updated_at   = Column(DateTime(timezone=True))
 
-    customer_id = Column(Integer, ForeignKey("customers.id"))
-
-    order_id = Column(Integer, ForeignKey("orders.id"))
-
-    amount = Column(Float)
-
-    status = Column(String, default="Pending")
-
-    created_at = Column(DateTime, default=datetime.utcnow)
+    customer = relationship("Customer")
+    order    = relationship("Order")

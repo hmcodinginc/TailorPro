@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date
+from .models import InvoiceStatus, PaymentType
+
 
 # ----------------------------
 # CUSTOMER SCHEMA
@@ -77,16 +79,30 @@ class UserLogin(BaseModel):
     password:str
 
 class InvoiceCreate(BaseModel):
+    customer_id:  int
+    order_id:     int
+    amount:       float
+    status:       Optional[InvoiceStatus] = InvoiceStatus.pending
+    payment_type: Optional[PaymentType]   = PaymentType.cash
+    notes:        Optional[str]           = None
 
-    customer_id: int
-    order_id: int
-    amount: float
-    status: str
+
+class InvoiceUpdate(BaseModel):
+    amount:       Optional[float]         = None
+    status:       Optional[InvoiceStatus] = None
+    payment_type: Optional[PaymentType]   = None
+    notes:        Optional[str]           = None
 
 
-class Invoice(InvoiceCreate):
-
-    id: int
+class InvoiceResponse(BaseModel):
+    id:           int
+    customer_id:  int
+    order_id:     int
+    amount:       float
+    status:       InvoiceStatus
+    payment_type: PaymentType
+    notes:        Optional[str]
+    # created_at:   datetime
 
     class Config:
         from_attributes = True

@@ -298,3 +298,17 @@ export const createInvoice = async (data:any) => {
   return res.json()
   
   }
+  export const deleteInvoice = async (id: number) => {
+
+    const res = await fetch(`${API}/invoices/${id}`, {
+      method: "DELETE",
+    })
+  
+    if (!res.ok) {
+      const error = await res.text()
+      console.log("Delete invoice error:", error)
+      throw new Error("Failed to delete invoice")
+    }
+  
+    return res.json()
+  }
