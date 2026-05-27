@@ -64,6 +64,8 @@ class Order(Base):
 
     customer_id = Column(Integer, ForeignKey("customers.id"))
 
+    order_code = Column(String, unique=True)
+
     description = Column(String)
 
     amount = Column(Float)

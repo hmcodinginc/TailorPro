@@ -223,12 +223,20 @@ function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogPro
               }
             />
           </SelectTrigger>
-          <SelectContent>
-            {customerOrders.map((o) => (
-              <SelectItem key={o.id} value={String(o.id)}>
-                {o.order_number} — {o.garment_type}
-              </SelectItem>
-            ))}
+        
+      
+<SelectContent>
+
+{customerOrders.map((o) => (
+
+  <SelectItem
+    key={o.id}
+    value={String(o.id)}
+  >
+    {o.order_code} - ₹{o.amount}
+  </SelectItem>
+
+))}
           </SelectContent>
         </Select>
       </div>

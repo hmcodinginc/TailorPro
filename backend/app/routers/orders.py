@@ -13,14 +13,38 @@ def get_orders(db: Session = Depends(get_db)):
 
 
 @router.post("/")
-def create_order(data: schemas.OrderCreate, db: Session = Depends(get_db)):
+def create_order(
+    data: schemas.OrderCreate,
+    db: Session = Depends(get_db)
+):
+
+    customer = db.query(models.Customer).filter(
+        models.Customer.id == data.customer_id
+    ).first()
+
+    customer_name = customer.name.upper().replace(" ", "")
+
+    order_count = db.query(models.Order).filter(
+        models.Order.customer_id == data.customer_id
+    ).count() + 1
+
+    order_code = f"{customer_name}-{order_count:03}"
 
     order = models.Order(
-        customer_id=data.customer_id,
-        description=data.description,
-        due_date=data.due_date,
-        amount=data.amount
 
+        customer_id = data.customer_id,
+
+        order_code = order_code,
+
+        description = data.description,
+
+        amount = data.amount,
+
+        status = data.status,
+
+        order_date = data.order_date,
+
+        due_date = data.due_date
     )
 
     db.add(order)

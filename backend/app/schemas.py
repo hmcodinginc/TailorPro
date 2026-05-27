@@ -4,9 +4,9 @@ from datetime import date
 from .models import InvoiceStatus, PaymentType
 
 
-# ----------------------------
+
 # CUSTOMER SCHEMA
-# ----------------------------
+
 
 class CustomerCreate(BaseModel):
     name: str
@@ -22,9 +22,7 @@ class Customer(CustomerCreate):
         from_attributes = True
 
 
-# ----------------------------
 # MEASUREMENTS SCHEMA
-# ----------------------------
 class MeasurementCreate(BaseModel):
 
     customer_id:int
@@ -48,9 +46,7 @@ class Measurement(MeasurementCreate):
         from_attributes = True
 
 
-# ----------------------------
 # ORDERS SCHEMA
-# ----------------------------
 
 class OrderCreate(BaseModel):
 
@@ -58,6 +54,7 @@ class OrderCreate(BaseModel):
     description:str
     amount:float
     status:str = "Pending"
+    order_date: date
     due_date: date
 
 class Order(OrderCreate):

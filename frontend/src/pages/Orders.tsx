@@ -1,119 +1,118 @@
-
 import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+
+import {
+  useQuery,
+  useMutation,
+  useQueryClient
+} from "@tanstack/react-query"
 
 import {
   getOrders,
+  getCustomers,
   addOrder,
   updateOrder,
-  deleteOrder,
-  getCustomers,
-  getOrderReminders
+  deleteOrder
 } from "@/lib/api"
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Plus } from "lucide-react"
 
-const statusColors: any = {
-  Pending: "bg-yellow-100 text-yellow-800",
-  Cutting: "bg-blue-100 text-blue-800",
-  Stitching: "bg-purple-100 text-purple-800",
-  Finishing: "bg-indigo-100 text-indigo-800",
-  Ready: "bg-green-100 text-green-800",
-  Delivered: "bg-gray-200 text-gray-700"
-}
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog"
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
+
+import {
+  Trash2,
+  Pencil
+} from "lucide-react"
 
 export default function Orders() {
 
   const queryClient = useQueryClient()
 
   const [open, setOpen] = useState(false)
-  const [editId, setEditId] = useState<number | null>(null)
+
+  const [editingId, setEditingId] = useState<number | null>(null)
 
   const initialForm = {
     customer_id: "",
     description: "",
     amount: "",
+    order_date: "",
     due_date: "",
     status: "Pending"
   }
 
   const [form, setForm] = useState(initialForm)
 
-  /* CUSTOMERS */
+  const { data: orders = [] } = useQuery({
+    queryKey: ["orders"],
+    queryFn: getOrders
+  })
 
   const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
     queryFn: getCustomers
   })
 
-  /* ORDERS */
+  const mutation = useMutation({
 
-  const { data: orders = [] } = useQuery({
-    queryKey: ["orders"],
-    queryFn: getOrders
-  })
+    mutationFn: (data: any) => {
 
-  /* REMINDERS */
+      if (editingId) {
+        return updateOrder(editingId, data)
+      }
 
-  const { data: reminders } = useQuery({
-    queryKey: ["reminders"],
-    queryFn: getOrderReminders
-  })
-
-  /* ADD ORDER */
-
-  const addMutation = useMutation({
-    mutationFn: addOrder,
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] })
-      setOpen(false)
-      setForm(initialForm)
-      alert("Order Added Successfully")
+      return addOrder(data)
     },
 
-    onError: (error: any) => {
-      console.error(error)
-      alert("Unable to save order")
-    }
-  })
-
-  /* UPDATE ORDER */
-
-  const updateMutation = useMutation({
-    mutationFn: (data: any) => updateOrder(editId, data),
-
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] })
-      setOpen(false)
-      setEditId(null)
-      setForm(initialForm)
-      alert("Order Updated Successfully")
-    },
 
-    onError: (error: any) => {
-      console.error(error)
-      alert("Unable to update order")
+      queryClient.invalidateQueries({
+        queryKey: ["orders"]
+      })
+
+      setOpen(false)
+
+      setEditingId(null)
+
+      setForm(initialForm)
     }
   })
-
-  /* DELETE ORDER */
 
   const deleteMutation = useMutation({
+
     mutationFn: deleteOrder,
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] })
+
+      queryClient.invalidateQueries({
+        queryKey: ["orders"]
+      })
     }
   })
 
-  /* SUBMIT */
-
   const submit = (e: any) => {
+
     e.preventDefault()
 
     if (!form.customer_id) {
@@ -131,200 +130,109 @@ export default function Orders() {
       return
     }
 
+    if (!form.order_date) {
+      alert("Please select order date")
+      return
+    }
+
     if (!form.due_date) {
-      alert("Please select delivery date")
+      alert("Please select due date")
       return
     }
 
     const data = {
+
       customer_id: Number(form.customer_id),
+
       description: form.description,
+
       amount: Number(form.amount),
+
+      order_date: form.order_date,
+
       due_date: form.due_date,
+
       status: form.status
     }
 
-    console.log("Submitting Order:", data)
-
-    if (editId !== null) {
-      updateMutation.mutate(data)
-    } else {
-      addMutation.mutate(data)
-    }
+    mutation.mutate(data)
   }
 
   return (
-    <div className="space-y-6">
 
-      {/* REMINDERS */}
-
-      {reminders && (
-        <div className="grid grid-cols-2 gap-4">
-
-          <Card className="p-4">
-            <h3 className="font-semibold mb-2">
-              Today's Delivery
-            </h3>
-
-            {reminders.today?.map((o: any) => {
-              const customer = customers.find(
-                (c: any) => c.id === o.customer_id
-              )
-
-              return (
-                <p key={o.id} className="text-sm">
-                  #{o.id} - {customer?.name}
-                </p>
-              )
-            })}
-          </Card>
-
-          <Card className="p-4">
-            <h3 className="font-semibold mb-2">
-              Overdue Orders
-            </h3>
-
-            {reminders.overdue?.map((o: any) => {
-              const customer = customers.find(
-                (c: any) => c.id === o.customer_id
-              )
-
-              return (
-                <p key={o.id} className="text-sm text-red-600">
-                  #{o.id} - {customer?.name}
-                </p>
-              )
-            })}
-          </Card>
-        </div>
-      )}
+    <div className="space-y-6 p-6">
 
       {/* HEADER */}
 
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">
-          Orders
-        </h1>
+      <div className="flex items-center justify-between">
 
-        <Button
-          onClick={() => {
-            setOpen(true)
-            setEditId(null)
-            setForm(initialForm)
-          }}
-        >
-          <Plus size={16} className="mr-2" />
-          Add Order
-        </Button>
-      </div>
+        <div>
+          <h1 className="text-3xl font-bold">
+            Orders
+          </h1>
 
-      {/* ORDER LIST */}
+          <p className="text-gray-500 mt-1">
+            Manage tailoring orders
+          </p>
+        </div>
 
-      <div className="grid gap-4">
+        <Dialog open={open} onOpenChange={setOpen}>
 
-        {orders.map((o: any) => {
+          <DialogTrigger asChild>
 
-          const customer = customers.find(
-            (c: any) => c.id === o.customer_id
-          )
+            <Button>
+              Add Order
+            </Button>
 
-          return (
-            <Card
-              key={o.id}
-              className="p-4 flex justify-between items-center"
+          </DialogTrigger>
+
+          <DialogContent>
+
+            <DialogHeader>
+              <DialogTitle>
+                {editingId ? "Edit Order" : "Add Order"}
+              </DialogTitle>
+            </DialogHeader>
+
+            <form
+              onSubmit={submit}
+              className="space-y-4"
             >
-              <div>
-                <p className="font-medium">
-                  {customer?.name}
-                </p>
 
-                <p className="text-sm text-gray-600">
-                  {o.description}
-                </p>
+              {/* CUSTOMER */}
 
-                <p className="text-sm mt-1">
-                  ₹ {o.amount}
-                </p>
-
-                <div className="mt-2">
-                  <Badge className={statusColors[o.status]}>
-                    {o.status}
-                  </Badge>
-                </div>
-
-                <p className="text-xs text-gray-500 mt-2">
-                  Delivery: {o.due_date}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setEditId(o.id)
-
-                    setForm({
-                      customer_id: String(o.customer_id),
-                      description: o.description,
-                      amount: String(o.amount),
-                      due_date: o.due_date,
-                      status: o.status
-                    })
-
-                    setOpen(true)
-                  }}
-                >
-                  Edit
-                </Button>
-
-                <Button
-                  variant="destructive"
-                  onClick={() => deleteMutation.mutate(o.id)}
-                >
-                  Delete
-                </Button>
-
-              </div>
-            </Card>
-          )
-        })}
-      </div>
-
-      {/* MODAL */}
-
-      {open && (
-
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-
-          <div className="bg-white w-[400px] p-6 rounded-xl space-y-4 shadow-xl">
-
-            <h2 className="text-lg font-semibold">
-              {editId !== null ? "Edit Order" : "Add Order"}
-            </h2>
-
-            <form onSubmit={submit} className="space-y-3">
-
-              <select
-                className="border p-2 rounded w-full"
+              <Select
                 value={form.customer_id}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setForm({
                     ...form,
-                    customer_id: e.target.value
+                    customer_id: value
                   })
                 }
               >
-                <option value="">
-                  Select Customer
-                </option>
 
-                {customers.map((c: any) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Customer" />
+                </SelectTrigger>
+
+                <SelectContent>
+
+                  {customers.map((customer: any) => (
+
+                    <SelectItem
+                      key={customer.id}
+                      value={String(customer.id)}
+                    >
+                      {customer.name}
+                    </SelectItem>
+
+                  ))}
+
+                </SelectContent>
+
+              </Select>
+
+              {/* DESCRIPTION */}
 
               <Input
                 placeholder="Description"
@@ -336,6 +244,8 @@ export default function Orders() {
                   })
                 }
               />
+
+              {/* AMOUNT */}
 
               <Input
                 type="number"
@@ -349,6 +259,21 @@ export default function Orders() {
                 }
               />
 
+              {/* ORDER DATE */}
+
+              <Input
+                type="date"
+                value={form.order_date}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    order_date: e.target.value
+                  })
+                }
+              />
+
+              {/* DUE DATE */}
+
               <Input
                 type="date"
                 value={form.due_date}
@@ -360,48 +285,180 @@ export default function Orders() {
                 }
               />
 
-              <select
-                className="border p-2 rounded w-full"
+              {/* STATUS */}
+
+              <Select
                 value={form.status}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setForm({
                     ...form,
-                    status: e.target.value
+                    status: value
                   })
                 }
               >
-                <option value="Pending">Pending</option>
-                <option value="Cutting">Cutting</option>
-                <option value="Stitching">Stitching</option>
-                <option value="Finishing">Finishing</option>
-                <option value="Ready">Ready</option>
-                <option value="Delivered">Delivered</option>
-              </select>
 
-              <div className="flex gap-2">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Status" />
+                </SelectTrigger>
 
-                <Button className="w-full" type="submit">
-                  {editId !== null ? "Update Order" : "Save Order"}
-                </Button>
+                <SelectContent>
+                  <SelectItem value="Pending">
+                    Pending
+                  </SelectItem>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setOpen(false)
-                    setEditId(null)
-                    setForm(initialForm)
-                  }}
-                >
-                  Cancel
-                </Button>
+                  <SelectItem value="Stitching">
+                    Stitching
+                  </SelectItem>
 
-              </div>
+                  <SelectItem value="Ready">
+                    Ready
+                  </SelectItem>
+
+                  <SelectItem value="Delivered">
+                    Delivered
+                  </SelectItem>
+                </SelectContent>
+
+              </Select>
+
+              <Button
+                type="submit"
+                className="w-full"
+              >
+                {editingId ? "Update Order" : "Create Order"}
+              </Button>
 
             </form>
-          </div>
-        </div>
-      )}
+
+          </DialogContent>
+
+        </Dialog>
+
+      </div>
+
+      {/* ORDERS GRID */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        {orders.map((order: any) => {
+
+          const customer = customers.find(
+            (c: any) => c.id === order.customer_id
+          )
+
+          return (
+
+            <Card key={order.id}>
+
+              <CardHeader className="flex flex-row items-start justify-between">
+
+                <div>
+
+                  <CardTitle className="text-lg">
+                    {order.order_code}
+                  </CardTitle>
+
+                  <p className="text-sm text-gray-500 mt-1">
+                    {customer?.name}
+                  </p>
+
+                </div>
+
+                <div className="flex gap-2">
+
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+
+                      setEditingId(order.id)
+
+                      setForm({
+                        customer_id: String(order.customer_id),
+                        description: order.description,
+                        amount: String(order.amount),
+                        order_date: order.order_date,
+                        due_date: order.due_date,
+                        status: order.status
+                      })
+
+                      setOpen(true)
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    onClick={() => {
+
+                      const confirmDelete = window.confirm(
+                        `Delete ${order.order_code}?`
+                      )
+
+                      if (confirmDelete) {
+                        deleteMutation.mutate(order.id)
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+
+                </div>
+
+              </CardHeader>
+
+              <CardContent className="space-y-2">
+
+                <p>
+                  <span className="font-medium">
+                    Description:
+                  </span>
+                  {" "}
+                  {order.description}
+                </p>
+
+                <p>
+                  <span className="font-medium">
+                    Amount:
+                  </span>
+                  {" "}
+                  ₹{order.amount}
+                </p>
+
+                <p>
+                  <span className="font-medium">
+                    Status:
+                  </span>
+                  {" "}
+                  {order.status}
+                </p>
+
+                <p>
+                  <span className="font-medium">
+                    Order Date:
+                  </span>
+                  {" "}
+                  {order.order_date}
+                </p>
+
+                <p>
+                  <span className="font-medium">
+                    Due Date:
+                  </span>
+                  {" "}
+                  {order.due_date}
+                </p>
+
+              </CardContent>
+
+            </Card>
+          )
+        })}
+
+      </div>
+
     </div>
   )
 }
