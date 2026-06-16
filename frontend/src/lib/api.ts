@@ -1,314 +1,89 @@
-const API = "http://127.0.0.1:8000/api"
+const API = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api"
+
+type RequestOptions = RequestInit & {
+  rawBody?: boolean
+}
+
+async function request<T = any>(path: string, options: RequestOptions = {}): Promise<T> {
+  const token = localStorage.getItem("token")
+  const isFormData = options.body instanceof FormData
+
+  const headers = new Headers(options.headers)
+  if (!isFormData && !options.rawBody) headers.set("Content-Type", "application/json")
+  if (token) headers.set("Authorization", `Bearer ${token}`)
+
+  const res = await fetch(`${API}${path}`, {
+    ...options,
+    headers,
+  })
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || errorData.message || `Request failed: ${res.status}`)
+  }
+
+  if (res.status === 204) return undefined as T
+  return res.json()
+}
+
+const jsonBody = (data: unknown) => JSON.stringify(data)
 
 // LOGIN
-export const loginUser = async (data: any) => {
-  const res = await fetch(`${API}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  })
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Login failed");
-  }
-  return res.json()
-}
+export const loginUser = (data: any) =>
+  request("/auth/login", { method: "POST", body: jsonBody(data) })
 
 // SIGNUP
-export const signupUser = async (data: any) => {
-  const res = await fetch(`${API}/auth/signup`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  })
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Signup failed");
-  }
-  return res.json()
-}
+export const signupUser = (data: any) =>
+  request("/auth/signup", { method: "POST", body: jsonBody(data) })
 
 // CUSTOMERS
-export const getCustomers = async () => {
+export const getCustomers = () => request("/customers/")
 
-  const res = await fetch(`${API}/customers/`)
+export const addCustomer = (data: any) =>
+  request("/customers/", { method: "POST", body: jsonBody(data) })
 
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Get customers error:", error)
-    throw new Error("Failed to fetch customers")
-  }
+export const updateCustomer = (id: number, data: any) =>
+  request(`/customers/${id}`, { method: "PUT", body: jsonBody(data) })
 
-  return res.json()
-}
-
-
-export const addCustomer = async (data: any) => {
-
-  console.log("Sending customer:", data)
-
-  const res = await fetch(`${API}/customers/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  })
-
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Add customer error:", error)
-    throw new Error("Failed to add customer")
-  }
-
-  return res.json()
-}
-
-
-export const updateCustomer = async (id: number, data: any) => {
-
-  const res = await fetch(`${API}/customers/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  })
-
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Update customer error:", error)
-    throw new Error("Failed to update customer")
-  }
-
-  return res.json()
-}
-
-
-export const deleteCustomer = async (id: number) => {
-
-  const res = await fetch(`${API}/customers/${id}`, {
-    method: "DELETE"
-  })
-
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Delete customer error:", error)
-    throw new Error("Failed to delete customer")
-  }
-}
-
-
+export const deleteCustomer = (id: number) =>
+  request(`/customers/${id}`, { method: "DELETE" })
 
 // ORDERS
-export const getOrders = async () => {
+export const getOrders = () => request("/orders/")
 
-  const res = await fetch(`${API}/orders/`)
+export const addOrder = (data: any) =>
+  request("/orders/", { method: "POST", body: jsonBody(data) })
 
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Get orders error:", error)
-    throw new Error("Failed to fetch orders")
-  }
+export const updateOrder = (id: number, data: any) =>
+  request(`/orders/${id}`, { method: "PUT", body: jsonBody(data) })
 
-  return res.json()
-}
+export const deleteOrder = (id: number) =>
+  request(`/orders/${id}`, { method: "DELETE" })
 
-
-export const addOrder = async (data: any) => {
-
-  const res = await fetch(`${API}/orders/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  })
-
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Add order error:", error)
-    throw new Error("Failed to add order")
-  }
-
-  return res.json()
-}
-
-
-export const updateOrder = async (id: number, data: any) => {
-
-  const res = await fetch(`${API}/orders/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  })
-
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Update order error:", error)
-    throw new Error("Failed to update order")
-  }
-
-  return res.json()
-}
-
-
-export const deleteOrder = async (id: number) => {
-
-  const res = await fetch(`${API}/orders/${id}`, {
-    method: "DELETE"
-  })
-
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Delete order error:", error)
-    throw new Error("Failed to delete order")
-  }
-}
-
-
+export const getOrderReminders = () => request("/orders/reminders")
 
 // MEASUREMENTS
-export const getMeasurements = async () => {
+export const getMeasurements = () => request("/measurements/")
 
-  const res = await fetch(`${API}/measurements/`)
+export const addMeasurement = (data: FormData) =>
+  request("/measurements/", { method: "POST", body: data, rawBody: true })
 
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Get measurements error:", error)
-    throw new Error("Failed to fetch measurements")
-  }
+export const updateMeasurement = (id: number, data: FormData) =>
+  request(`/measurements/${id}`, { method: "PUT", body: data, rawBody: true })
 
-  return res.json()
-}
-export const addMeasurement = async (data: FormData) => {
+export const deleteMeasurement = (id: number) =>
+  request(`/measurements/${id}`, { method: "DELETE" })
 
-  const res = await fetch("http://127.0.0.1:8000/api/measurements/", {
-      method: "POST",
-      body: data
-  })
+// INVOICES
+export const getInvoices = () => request("/invoices/")
 
-  if (!res.ok) {
-      throw new Error("Failed to add measurement")
-  }
+export const addInvoice = (data: any) =>
+  request("/invoices/", { method: "POST", body: jsonBody(data) })
 
-  return res.json()
-}
+export const createInvoice = addInvoice
 
-export const updateMeasurement = async (id: number, data: FormData) => {
-  const res = await fetch(`${API}/measurements/${id}`, {
-    method: "PUT",
-    body: data  
-  })
+export const updateInvoice = (id: number, data: any) =>
+  request(`/invoices/${id}`, { method: "PUT", body: jsonBody(data) })
 
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Update measurement error:", error)
-    throw new Error("Failed to update measurement")
-  }
-
-  return res.json()
-}
-
-export const deleteMeasurement = async (id: number) => {
-
-  const res = await fetch(`${API}/measurements/${id}`, {
-    method: "DELETE"
-  })
-
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Delete measurement error:", error)
-    throw new Error("Failed to delete measurement")
-  }
-}
-
-//Invoices
-export const getInvoices = async () => {
-  const res = await fetch(`${API}/invoices/`)
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Get invoices error:", error)
-    throw new Error("Failed to fetch invoices")
-  }
-  return res.json()
-}
-
-export const addInvoice = async (data: any) => {
-  const res = await fetch(`${API}/invoices/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  })
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Add invoice error:", error)
-    throw new Error("Failed to add invoice")
-  }
-  return res.json()
-}
-export const updateInvoice = async (id: number, data: any) => {
-
-  const res = await fetch(`${API}/invoices/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  })
-
-  if (!res.ok) {
-    const error = await res.text()
-    console.log("Update invoice error:", error)
-    throw new Error("Failed to update invoice")
-  }
-
-  return res.json()
-
-}
-export const getOrderReminders = async () => {
-
-  const res = await fetch(`${API}/orders/reminders`)
-
-  return res.json()
-
-}
-export const createInvoice = async (data:any) => {
-
-  const res = await fetch(`${API}/invoices`,{
-  
-  method:"POST",
-  
-  headers:{
-  "Content-Type":"application/json"
-  },
-  
-  body:JSON.stringify(data)
-  
-  })
-  
-  if(!res.ok){
-  throw new Error("Failed to create invoice")
-  }
-  
-  return res.json()
-  
-  }
-  export const deleteInvoice = async (id: number) => {
-
-    const res = await fetch(`${API}/invoices/${id}`, {
-      method: "DELETE",
-    })
-  
-    if (!res.ok) {
-      const error = await res.text()
-      console.log("Delete invoice error:", error)
-      throw new Error("Failed to delete invoice")
-    }
-  
-    return res.json()
-  }
+export const deleteInvoice = (id: number) =>
+  request(`/invoices/${id}`, { method: "DELETE" })

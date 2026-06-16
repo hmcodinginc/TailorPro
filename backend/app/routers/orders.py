@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models, schemas
@@ -21,6 +21,8 @@ def create_order(
     customer = db.query(models.Customer).filter(
         models.Customer.id == data.customer_id
     ).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
 
     customer_name = customer.name.upper().replace(" ", "")
 
@@ -58,6 +60,8 @@ def create_order(
 def update_order(id: int, data: schemas.OrderCreate, db: Session = Depends(get_db)):
 
     order = db.query(models.Order).filter(models.Order.id == id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
 
     order.customer_id = data.customer_id
     order.description = data.description
@@ -75,6 +79,8 @@ def update_order(id: int, data: schemas.OrderCreate, db: Session = Depends(get_d
 def delete_order(id: int, db: Session = Depends(get_db)):
 
     order = db.query(models.Order).filter(models.Order.id == id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
 
     db.delete(order)
     db.commit()

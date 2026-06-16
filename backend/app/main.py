@@ -1,3 +1,6 @@
+import os
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +11,8 @@ from . import models
 from .routers import customers, orders, measurements
 from .routers import auth
 from .routers import invoices
+
+load_dotenv()
 
 # ✅ STEP 1: Create app FIRST
 app = FastAPI()
@@ -21,8 +26,12 @@ models.Base.metadata.create_all(bind=engine)
 # ✅ STEP 4: CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv("CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080").split(",")
+        if origin.strip()
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

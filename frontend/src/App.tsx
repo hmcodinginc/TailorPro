@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import Dashboard from "./pages/Dashboard"
 import Customers from "./pages/Customers"
@@ -9,9 +9,11 @@ import Auth from "./pages/Auth"
 import Invoices from "./pages/Invoices"
 
 import AppLayout from "./components/AppLayout"
-const token = localStorage.getItem("token")
-if (!token) {
-  // redirect to /auth
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem("token")
+  if (!token) return <Navigate to="/auth" replace />
+  return <>{children}</>
 }
 
 export default function App() {
@@ -28,48 +30,67 @@ export default function App() {
         <Route
           path="/"
           element={
-            <AppLayout>
-              <Dashboard />
-            </AppLayout>
+            <ProtectedRoute>
+              <AppLayout>
+                <Dashboard />
+              </AppLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/customers"
           element={
-            <AppLayout>
-              <Customers />
-            </AppLayout>
+            <ProtectedRoute>
+              <AppLayout>
+                <Customers />
+              </AppLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/customers/:id"
           element={
-            <AppLayout>
-              <CustomerDetail />
-            </AppLayout>
+            <ProtectedRoute>
+              <AppLayout>
+                <CustomerDetail />
+              </AppLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/measurements"
           element={
-            <AppLayout>
-              <Measurements />
-            </AppLayout>
+            <ProtectedRoute>
+              <AppLayout>
+                <Measurements />
+              </AppLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/orders"
           element={
-            <AppLayout>
-              <Orders />
-            </AppLayout>
+            <ProtectedRoute>
+              <AppLayout>
+                <Orders />
+              </AppLayout>
+            </ProtectedRoute>
           }
         />
-        <Route path="/invoices" element={<AppLayout><Invoices /></AppLayout>} />
+        <Route
+          path="/invoices"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Invoices />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
 
       </Routes>
 

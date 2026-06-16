@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Search, Phone, Mail, MapPin, MoreVertical, Pencil, Trash2 } from "lucide-react"
+import { Plus, Search, Phone, Mail, MapPin, MoreVertical, Pencil, Trash2, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getCustomers, addCustomer, updateCustomer, deleteCustomer } from "@/lib/api"
+import { EmptyState } from "@/components/EmptyState"
+import { PageHeader } from "@/components/PageHeader"
 
 const emptyForm = { name: "", phone: "", email: "", address: "" }
 
@@ -101,79 +103,79 @@ export default function Customers() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Customers</h1>
-          <p className="text-muted-foreground">Manage your customer directory</p>
-        </div>
-
-        {/* Add Customer */}
-        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Customer
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Customer</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                createMutation.mutate(addForm)
-              }}
-              className="space-y-4"
-            >
-              <div className="space-y-2">
-                <Label>Full Name</Label>
-                <Input
-                  value={addForm.name}
-                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input
-                  value={addForm.phone}
-                  onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  value={addForm.email}
-                  onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Address</Label>
-                <Input
-                  value={addForm.address}
-                  onChange={(e) => setAddForm({ ...addForm, address: e.target.value })}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Adding..." : "Add Customer"}
+      <PageHeader
+        title="Customers"
+        description="Manage profiles, contact details, measurements, orders, and invoice history."
+        actions={
+          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Customer
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Customer</DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  createMutation.mutate(addForm)
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label>Full Name</Label>
+                  <Input
+                    value={addForm.name}
+                    onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input
+                    value={addForm.phone}
+                    onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    value={addForm.email}
+                    onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Address</Label>
+                  <Input
+                    value={addForm.address}
+                    onChange={(e) => setAddForm({ ...addForm, address: e.target.value })}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Adding..." : "Add Customer"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       {/* Search */}
-      <div className="relative max-w-sm">
+      <div className="flex flex-col gap-3 rounded-lg border bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative w-full sm:max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search customers..."
+          placeholder="Search by name or phone..."
           className="pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+      </div>
+        <p className="text-sm text-muted-foreground">{filtered.length} of {customers.length} customers</p>
       </div>
 
       {/* Customer Cards */}
@@ -237,9 +239,19 @@ export default function Customers() {
         ))}
 
         {filtered.length === 0 && (
-          <p className="col-span-full text-center text-muted-foreground py-8">
-            No customers found
-          </p>
+          <div className="col-span-full">
+            <EmptyState
+              icon={<Users className="h-10 w-10" />}
+              title={search ? "No customers match your search" : "No customers yet"}
+              description={search ? "Try searching by another name or phone number." : "Add your first customer profile to begin tracking measurements and orders."}
+              action={!search && (
+                <Button onClick={() => setAddDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Customer
+                </Button>
+              )}
+            />
+          </div>
         )}
       </div>
 

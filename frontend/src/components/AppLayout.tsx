@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
+  Bell,
+  CalendarDays,
+  ChevronRight,
   LayoutDashboard,
   Users,
   Ruler,
@@ -13,6 +16,8 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 
 const navItems = [
@@ -38,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
 
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-slate-50">
 
       {sidebarOpen && (
         <div
@@ -50,21 +55,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white transform transition-transform duration-200 lg:translate-x-0 lg:static ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-slate-950 text-white shadow-xl transform transition-transform duration-200 lg:translate-x-0 lg:static ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
       >
 
         {/* Logo */}
 
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-800">
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
 
-          <div className="bg-emerald-500 p-2 rounded-lg">
+          <div className="bg-emerald-500 p-2 rounded-md shadow-sm shadow-emerald-950/40">
             <Scissors className="h-5 w-5 text-white" />
           </div>
 
           <div>
             <p className="font-semibold text-white">TailorPro</p>
-            <p className="text-xs text-gray-400">Management System</p>
+            <p className="text-xs text-slate-400">Studio operations</p>
           </div>
 
         </div>
@@ -86,15 +91,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 key={item.to}
                 to={item.to}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${active
-                  ? "bg-gray-800 text-white"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                  }`}
+                className={cn(
+                  "group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
+                  active
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
+                )}
               >
 
                 <item.icon className="h-4 w-4" />
 
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {active && <ChevronRight className="h-4 w-4 text-slate-500" />}
 
               </Link>
 
@@ -107,11 +115,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Logout */}
 
-        <div className="px-3 py-4 border-t border-gray-800">
+        <div className="mx-3 mb-3 rounded-lg border border-white/10 bg-white/[0.04] p-3">
+          <p className="text-xs font-medium text-slate-300">Today</p>
+          <p className="mt-1 text-sm text-white">Keep orders moving before delivery dates slip.</p>
+        </div>
+
+        <div className="px-3 py-4 border-t border-white/10">
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm w-full text-gray-300 hover:bg-gray-800 hover:text-white"
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full text-slate-300 hover:bg-white/10 hover:text-white"
           >
 
             <LogOut className="h-4 w-4" />
@@ -129,7 +142,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 min-w-0">
 
-        <header className="flex items-center gap-4 px-4 py-3 border-b lg:px-6">
+        <header className="sticky top-0 z-30 flex items-center gap-4 border-b bg-white/90 px-4 py-3 backdrop-blur lg:px-6">
 
           <Button
             variant="ghost"
@@ -140,7 +153,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="h-5 w-5" />
           </Button>
 
-          <h1 className="text-lg font-semibold">
+          <div className="hidden max-w-xl flex-1 items-center lg:flex">
+            <Input
+              className="h-9 bg-slate-50"
+              placeholder="Search customers, orders, invoices..."
+            />
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" className="hidden gap-2 sm:flex">
+              <CalendarDays className="h-4 w-4" />
+              Today
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Notifications">
+              <Bell className="h-5 w-5" />
+            </Button>
+          </div>
+
+          <h1 className="sr-only">
 
             {navItems.find(
               (n) =>
@@ -153,7 +183,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
 
-        <div className="p-4 lg:p-6">
+        <div className="mx-auto w-full max-w-7xl p-4 lg:p-6">
 
           {children}
 

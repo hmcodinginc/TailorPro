@@ -1,176 +1,221 @@
-import { Users, Scissors, FileText, Clock } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
+import { AlertTriangle, CheckCircle2, Clock, FileText, Scissors, TrendingUp, Users } from "lucide-react"
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useQuery } from "@tanstack/react-query"
-import { getCustomers, getOrders, getInvoices } from "@/lib/api"
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+import { EmptyState } from "@/components/EmptyState"
+import { MetricCard } from "@/components/MetricCard"
+import { PageHeader } from "@/components/PageHeader"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getCustomers, getInvoices, getOrders } from "@/lib/api"
+import { getOrderStatusMeta } from "@/lib/domain"
+import { formatCurrency, formatDate, isOverdue } from "@/lib/format"
 
-const statusColors: Record<string, string> = {
-    Pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "In Progress": "bg-blue-100 text-blue-800 border-blue-200",
-    Ready: "bg-green-100 text-green-800 border-green-200",
-    Delivered: "bg-gray-100 text-gray-600 border-gray-200",
+const pipelineColors: Record<string, string> = {
+  Pending: "#f59e0b",
+  Stitching: "#2563eb",
+  Ready: "#059669",
+  Delivered: "#64748b",
 }
 
 export default function Dashboard() {
+  const { data: customers = [], isLoading: customersLoading } = useQuery({
+    queryKey: ["customers"],
+    queryFn: getCustomers,
+  })
 
-    const { data: customers = [] } = useQuery({
-        queryKey: ["customers"],
-        queryFn: getCustomers,
-    })
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+    queryKey: ["orders"],
+    queryFn: getOrders,
+  })
 
-    const { data: orders = [], isLoading: ordersLoading } = useQuery({
-        queryKey: ["orders"],
-        queryFn: getOrders,
-    })
+  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
+    queryKey: ["invoices"],
+    queryFn: getInvoices,
+  })
 
-    const { data: invoices = [] } = useQuery({
-        queryKey: ["invoices"],
-        queryFn: getInvoices,
-    })
+  const activeOrders = orders.filter((o: any) => !["Delivered", "Cancelled"].includes(o.status)).length
+  const overdueOrders = orders.filter((o: any) => o.status !== "Delivered" && isOverdue(o.due_date)).length
+  const paidRevenue = invoices
+    .filter((i: any) => String(i.status).toLowerCase() === "paid")
+    .reduce((sum: number, i: any) => sum + Number(i.amount || 0), 0)
+  const outstanding = invoices
+    .filter((i: any) => String(i.status).toLowerCase() !== "paid")
+    .reduce((sum: number, i: any) => sum + Number(i.amount || 0), 0)
 
-    const activeOrders = orders.filter((o: any) =>
-        ["Pending", "In Progress", "Ready"].includes(o.status)
-    ).length
+  const pipelineData = ["Pending", "Stitching", "Ready", "Delivered"].map((status) => ({
+    status,
+    count: orders.filter((o: any) => (o.status === "In Progress" ? "Stitching" : o.status) === status).length,
+  }))
 
-    const pendingInvoices = invoices.filter((i: any) =>
-        ["Pending", "Unpaid"].includes(i.status)
-    ).length
+  const revenueData = Object.values(
+    invoices.reduce((acc: any, inv: any) => {
+      const date = inv.created_at ? new Date(inv.created_at) : new Date()
+      const month = date.toLocaleString("default", { month: "short" })
+      if (!acc[month]) acc[month] = { month, revenue: 0 }
+      if (String(inv.status).toLowerCase() === "paid") acc[month].revenue += Number(inv.amount || 0)
+      return acc
+    }, {})
+  )
 
-    const recentOrders = [...orders].sort((a: any, b: any) => b.id - a.id).slice(0, 5)
+  const dueSoon = [...orders]
+    .filter((o: any) => o.status !== "Delivered")
+    .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+    .slice(0, 6)
 
-    const revenueData = Object.values(
-        invoices.reduce((acc: any, inv: any) => {
+  const recentOrders = [...orders].sort((a: any, b: any) => b.id - a.id).slice(0, 5)
+  const loading = customersLoading || ordersLoading || invoicesLoading
 
-            const month = new Date(inv.created_at || Date.now()).toLocaleString("default", { month: "short" })
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Studio Dashboard"
+        description="Track today's workload, delivery risks, revenue, and customer activity."
+        actions={
+          <>
+            <Button variant="outline">Export Report</Button>
+            <Button>New Order</Button>
+          </>
+        }
+      />
 
-            if (!acc[month]) acc[month] = { month, revenue: 0 }
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Total Customers" value={customers.length} detail="Profiles in your studio" icon={Users} tone="slate" />
+        <MetricCard title="Active Orders" value={activeOrders} detail={`${overdueOrders} overdue`} icon={Scissors} tone={overdueOrders ? "rose" : "emerald"} />
+        <MetricCard title="Collected Revenue" value={formatCurrency(paidRevenue)} detail="From paid invoices" icon={TrendingUp} tone="emerald" />
+        <MetricCard title="Outstanding" value={formatCurrency(outstanding)} detail="Pending and unpaid invoices" icon={FileText} tone="amber" />
+      </div>
 
-            if (inv.status === "Paid") acc[month].revenue += Number(inv.amount)
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle>Revenue Trend</CardTitle>
+            <CardDescription>Paid invoice value by month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : revenueData.length ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Bar dataKey="revenue" fill="#059669" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState title="No revenue yet" description="Paid invoices will appear here once payments are recorded." />
+            )}
+          </CardContent>
+        </Card>
 
-            return acc
-
-        }, {})
-    )
-
-    const statCards = [
-        { title: "Total Customers", value: customers.length, icon: Users },
-        { title: "Active Orders", value: activeOrders, icon: Scissors },
-        { title: "Pending Invoices", value: pendingInvoices, icon: FileText },
-    ]
-
-    return (
-
-        <div className="space-y-6">
-
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground">Welcome back!</p>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle>Order Pipeline</CardTitle>
+            <CardDescription>Current workload by stage</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={pipelineData} dataKey="count" nameKey="status" innerRadius={62} outerRadius={94} paddingAngle={3}>
+                    {pipelineData.map((entry) => (
+                      <Cell key={entry.status} fill={pipelineColors[entry.status]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+            <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+              {pipelineData.map((item) => (
+                <div key={item.status} className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: pipelineColors[item.status] }} />
+                  <span className="text-muted-foreground">{item.status}</span>
+                  <span className="ml-auto font-medium">{item.count}</span>
+                </div>
+              ))}
             </div>
+          </CardContent>
+        </Card>
+      </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {statCards.map((stat) => (
-                    <Card key={stat.title}>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                {stat.title}
-                            </CardTitle>
-                            <stat.icon className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-600" />
+              Due Soon
+            </CardTitle>
+            <CardDescription>Orders that need attention first</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+            ) : dueSoon.length ? (
+              <div className="divide-y rounded-md border">
+                {dueSoon.map((order: any) => {
+                  const customer = customers.find((c: any) => c.id === order.customer_id)
+                  const overdue = isOverdue(order.due_date)
+                  return (
+                    <div key={order.id} className="flex items-center gap-4 p-3">
+                      <div className={overdue ? "text-red-600" : "text-slate-500"}>
+                        {overdue ? <AlertTriangle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-950">{order.order_code || `Order #${order.id}`}</p>
+                        <p className="truncate text-xs text-muted-foreground">{customer?.name ?? "Unknown customer"} - {order.description}</p>
+                      </div>
+                      <div className="text-right text-sm">
+                        <p className={overdue ? "font-medium text-red-600" : "font-medium"}>{formatDate(order.due_date)}</p>
+                        <p className="text-xs text-muted-foreground">{formatCurrency(order.amount)}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <EmptyState title="No active due dates" description="New active orders will appear in this queue." />
+            )}
+          </CardContent>
+        </Card>
 
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stat.value}</div>
-                        </CardContent>
-
-                    </Card>
-                ))}
-            </div>
-
-
-            {/* Revenue Chart */}
-
-            <Card>
-
-                <CardHeader>
-                    <CardTitle>Monthly Revenue</CardTitle>
-                    <CardDescription>Revenue from paid invoices</CardDescription>
-                </CardHeader>
-
-                <CardContent>
-
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={revenueData}>
-                            <XAxis dataKey="month" />
-                            <YAxis />
-                            <Tooltip />
-                            <Bar dataKey="revenue" fill="#10b981" />
-                        </BarChart>
-                    </ResponsiveContainer>
-
-                </CardContent>
-
-            </Card>
-
-
-            {/* Recent Orders */}
-
-            <Card>
-
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-primary" />
-                        Recent Orders
-                    </CardTitle>
-                    <CardDescription>Latest orders from your shop</CardDescription>
-                </CardHeader>
-
-                <CardContent>
-
-                    {ordersLoading ? (
-                        <div className="space-y-3">
-                            {[1, 2, 3].map((i) => (
-                                <Skeleton key={i} className="h-16 w-full" />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-
-                            {recentOrders.map((order: any) => {
-
-                                const customer = customers.find((c: any) => c.id === order.customer_id)
-
-                                return (
-
-                                    <div key={order.id} className="flex items-center justify-between border rounded-lg p-3">
-
-                                        <div>
-                                            <p className="font-medium">{customer?.name ?? "Unknown"}</p>
-                                            <p className="text-sm text-muted-foreground">{order.description}</p>
-                                        </div>
-
-                                        <div className="text-right">
-                                            <Badge variant="outline" className={statusColors[order.status]}>
-                                                {order.status}
-                                            </Badge>
-                                        </div>
-
-                                    </div>
-
-                                )
-
-                            })}
-
-                        </div>
-                    )}
-
-                </CardContent>
-
-            </Card>
-
-        </div>
-
-    )
-
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Latest orders from your studio</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+            ) : recentOrders.length ? (
+              <div className="space-y-3">
+                {recentOrders.map((order: any) => {
+                  const customer = customers.find((c: any) => c.id === order.customer_id)
+                  const meta = getOrderStatusMeta(order.status)
+                  return (
+                    <div key={order.id} className="flex items-center justify-between gap-4 rounded-md border bg-white p-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-950">{customer?.name ?? "Unknown customer"}</p>
+                        <p className="truncate text-sm text-muted-foreground">{order.description}</p>
+                      </div>
+                      <Badge variant="outline" className={meta.className}>{meta.label}</Badge>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <EmptyState title="No orders yet" description="Create an order to start tracking studio activity." />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 }
