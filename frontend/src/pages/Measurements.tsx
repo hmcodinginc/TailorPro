@@ -42,6 +42,7 @@ import {
   deleteMeasurement,
   getCustomers,
 } from "@/lib/api"
+import { motion } from "framer-motion"
 
 // ── Garment templates ────────────────────────────────────────────────────────
 
@@ -354,7 +355,12 @@ export default function Measurements() {
   })
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6"
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -523,6 +529,6 @@ export default function Measurements() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   )
 }

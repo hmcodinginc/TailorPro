@@ -1,5 +1,7 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom"
+import { AnimatePresence } from "framer-motion"
 
+import Landing from "./pages/Landing"
 import Dashboard from "./pages/Dashboard"
 import Customers from "./pages/Customers"
 import CustomerDetail from "./pages/CustomerDetail"
@@ -7,6 +9,9 @@ import Measurements from "./pages/Measurements"
 import Orders from "./pages/Orders"
 import Auth from "./pages/Auth"
 import Invoices from "./pages/Invoices"
+import Inventory from "./pages/Inventory"
+import Reports from "./pages/Reports"
+import Settings from "./pages/Settings"
 
 import AppLayout from "./components/AppLayout"
 
@@ -16,19 +21,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-export default function App() {
-
+function AnimatedRoutes() {
+  const location = useLocation();
+  
   return (
-
-
-    <BrowserRouter>
-
-      <Routes>
-
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<Auth />} />
 
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -81,6 +84,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        
         <Route
           path="/invoices"
           element={
@@ -92,10 +96,49 @@ export default function App() {
           }
         />
 
+        <Route
+          path="/inventory"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Inventory />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Reports />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Settings />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
       </Routes>
-
-    </BrowserRouter>
-
-  )
-
+    </AnimatePresence>
+  );
 }
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AnimatedRoutes />
+    </BrowserRouter>
+  )
+}
+

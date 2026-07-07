@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { Pencil, Plus, Search, ShoppingBag, Trash2 } from "lucide-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { motion } from "framer-motion"
 
 import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
@@ -93,7 +94,12 @@ export default function Orders() {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6"
+    >
       <PageHeader
         title="Orders"
         description="Track production stages, delivery dates, customer work, and order value."
@@ -240,6 +246,6 @@ export default function Orders() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </motion.div>
   )
 }

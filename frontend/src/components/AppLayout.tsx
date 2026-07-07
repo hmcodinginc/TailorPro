@@ -12,7 +12,10 @@ import {
   FileText,
   LogOut,
   Menu,
-  Scissors
+  Scissors,
+  Package,
+  BarChart3,
+  Settings as SettingsIcon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,11 +24,14 @@ import { cn } from "@/lib/utils";
 
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/measurements", label: "Measurements", icon: Ruler },
   { to: "/orders", label: "Orders", icon: ShoppingBag },
-  { to: "/invoices", label: "Invoices", icon: FileText }
+  { to: "/invoices", label: "Invoices", icon: FileText },
+  { to: "/inventory", label: "Inventory", icon: Package },
+  { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/settings", label: "Settings", icon: SettingsIcon }
 ];
 
 

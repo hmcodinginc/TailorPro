@@ -25,6 +25,7 @@ import {
   getCustomers, getOrders,
 } from "@/lib/api";
 import { format } from "date-fns";
+import { motion } from "framer-motion";
 type Customer = any
 type Order = any
 
@@ -380,7 +381,12 @@ export default function Invoices() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 animate-fade-in"
+    >
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -615,6 +621,6 @@ export default function Invoices() {
         </DialogContent>
       </Dialog>
 
-    </div>
+    </motion.div>
   );
 }

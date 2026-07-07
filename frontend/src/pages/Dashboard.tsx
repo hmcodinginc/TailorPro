@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock, FileText, Scissors, TrendingUp, Users } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useQuery } from "@tanstack/react-query"
+import { motion } from "framer-motion"
 
 import { EmptyState } from "@/components/EmptyState"
 import { MetricCard } from "@/components/MetricCard"
@@ -68,8 +69,27 @@ export default function Dashboard() {
   const recentOrders = [...orders].sort((a: any, b: any) => b.id - a.id).slice(0, 5)
   const loading = customersLoading || ordersLoading || invoicesLoading
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  }
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  }
+
   return (
-    <div className="space-y-6">
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6"
+    >
       <PageHeader
         title="Studio Dashboard"
         description="Track today's workload, delivery risks, revenue, and customer activity."
@@ -81,14 +101,14 @@ export default function Dashboard() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <motion.div variants={itemVariants} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Total Customers" value={customers.length} detail="Profiles in your studio" icon={Users} tone="slate" />
         <MetricCard title="Active Orders" value={activeOrders} detail={`${overdueOrders} overdue`} icon={Scissors} tone={overdueOrders ? "rose" : "emerald"} />
         <MetricCard title="Collected Revenue" value={formatCurrency(paidRevenue)} detail="From paid invoices" icon={TrendingUp} tone="emerald" />
         <MetricCard title="Outstanding" value={formatCurrency(outstanding)} detail="Pending and unpaid invoices" icon={FileText} tone="amber" />
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+      <motion.div variants={itemVariants} className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
         <Card className="border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle>Revenue Trend</CardTitle>
@@ -144,9 +164,9 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <motion.div variants={itemVariants} className="grid gap-6 xl:grid-cols-2">
         <Card className="border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -215,7 +235,8 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
+
