@@ -19,7 +19,17 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.detail || errorData.message || `Request failed: ${res.status}`)
+    // FastAPI returns detail as array for 422 validation errors
+    let message = `Request failed: ${res.status}`
+    if (typeof errorData.detail === "string") {
+      message = errorData.detail
+    } else if (Array.isArray(errorData.detail) && errorData.detail.length > 0) {
+      // e.g. [{ loc: [...], msg: "field required", type: "..." }]
+      message = errorData.detail.map((e: any) => `${e.loc?.slice(-1)[0] ?? ""}: ${e.msg}`).join(", ")
+    } else if (errorData.message) {
+      message = errorData.message
+    }
+    throw new Error(message)
   }
 
   if (res.status === 204) return undefined as T
