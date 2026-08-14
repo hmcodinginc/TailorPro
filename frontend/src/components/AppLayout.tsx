@@ -108,14 +108,16 @@ export default function AppLayout({
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [dark, setDark] = useState(() =>
-    typeof window !== "undefined"
-      ? document.documentElement.classList.contains("dark")
-      : false
-  );
+  const [dark, setDark] = useState(() => {
+    // Persist dark mode preference in localStorage so it survives page refresh
+    const saved = localStorage.getItem("darkMode");
+    if (saved !== null) return saved === "true";
+    return document.documentElement.classList.contains("dark");
+  });
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("darkMode", String(dark));
   }, [dark]);
 
   const handleLogout = () => {
@@ -145,10 +147,11 @@ export default function AppLayout({
         transition={{ duration: 0.2, ease: "easeInOut" }}
         className="hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border shrink-0 overflow-hidden relative"
       >
-        {/* Logo row */}
-        <div
+        {/* Logo row — clicking navigates to landing page */}
+        <Link
+          to="/"
           className={cn(
-            "flex items-center h-16 border-b border-sidebar-border shrink-0 px-3",
+            "flex items-center h-16 border-b border-sidebar-border shrink-0 px-3 hover:bg-accent/50 transition-colors",
             collapsed ? "justify-center" : "gap-2.5"
           )}
         >
@@ -169,7 +172,7 @@ export default function AppLayout({
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </Link>
 
         {/* Nav items */}
         <SidebarNav collapsed={collapsed} />
@@ -211,7 +214,7 @@ export default function AppLayout({
             className="fixed inset-y-0 left-0 z-50 flex flex-col w-60 bg-sidebar border-r border-sidebar-border lg:hidden"
           >
             <div className="flex items-center justify-between px-4 h-16 border-b border-sidebar-border shrink-0">
-              <div className="flex items-center gap-2.5">
+              <Link to="/" className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-xl gradient-brand flex items-center justify-center shadow-brand-sm">
                   <Scissors className="h-4 w-4 text-white" />
                 </div>
@@ -219,7 +222,7 @@ export default function AppLayout({
                   <p className="font-bold text-foreground text-sm">TailorPro</p>
                   <p className="text-[10px] text-muted-foreground">Studio Manager</p>
                 </div>
-              </div>
+              </Link>
               <button
                 onClick={() => setMobileOpen(false)}
                 className="text-muted-foreground hover:text-foreground transition-colors"

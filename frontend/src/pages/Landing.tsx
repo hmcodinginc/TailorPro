@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import {
   Scissors, ArrowRight, Check, Users, ShoppingBag,
@@ -125,16 +125,16 @@ const TESTIMONIALS = [
 
 /* ── Main component ───────────────────────────────────────────────────── */
 export default function Landing() {
-  const token = localStorage.getItem("token");
-  if (token) return <Navigate to="/dashboard" replace />;
 
-  const [dark, setDark] = useState(false);
+  // Read dark preference from localStorage (synced with AppLayout)
+  const [dark, setDark] = useState(() => localStorage.getItem("darkMode") === "true");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     const el = document.documentElement;
     dark ? el.classList.add("dark") : el.classList.remove("dark");
+    localStorage.setItem("darkMode", String(dark));
   }, [dark]);
 
   useEffect(() => {

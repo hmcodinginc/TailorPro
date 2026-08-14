@@ -72,11 +72,19 @@
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
   * { @apply border-border; }
-  html { scroll-behavior: smooth; }
+  html {
+    scroll-behavior: smooth;
+    /* ⚠️ CRITICAL: always set a background on <html> so there is NEVER a
+       transparent flash between page transitions (AnimatePresence fade-out
+       leaves the html background visible for a few frames). */
+    background-color: hsl(var(--background));
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    /* Belt-and-braces: also cover body */
+    background-color: hsl(var(--background));
   }
 }
 
@@ -92,7 +100,7 @@
     background-clip: text;
   }
 
-  /* Legacy aliases used in old pages */
+  /* Legacy aliases used in older page components */
   .gradient-primary { background: linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%); }
   .gradient-text {
     background: linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%);
@@ -101,14 +109,14 @@
     background-clip: text;
   }
   .shadow-glow-primary { box-shadow: 0 4px 14px rgba(14,165,233,0.35); }
-  .shadow-glow-teal { box-shadow: 0 4px 14px rgba(20,184,166,0.35); }
+  .shadow-glow-teal    { box-shadow: 0 4px 14px rgba(20,184,166,0.35); }
 
-  /* ── Hero background ── */
+  /* ── Hero section background ── */
   .hero-bg {
     background: linear-gradient(160deg, #dbeafe 0%, #e0f2fe 25%, #f0f9ff 55%, #f8fafc 85%, #ffffff 100%);
   }
 
-  /* ── Sidebar nav active state ── */
+  /* ── Sidebar active state ── */
   .sidebar-item-active {
     @apply bg-sky-50 text-sky-700 font-semibold;
   }
@@ -121,24 +129,15 @@
     @apply bg-white/80 backdrop-blur-xl border border-white/60;
   }
 
-  /* ── Stat change indicators ── */
-  .change-up {
-    @apply inline-flex items-center text-emerald-600 font-medium text-xs;
-  }
-  .change-down {
-    @apply inline-flex items-center text-red-500 font-medium text-xs;
-  }
-  .change-warn {
-    @apply inline-flex items-center text-amber-600 font-medium text-xs;
-  }
+  /* ── Stat indicators ── */
+  .change-up   { @apply inline-flex items-center text-emerald-600 font-medium text-xs; }
+  .change-down { @apply inline-flex items-center text-red-500   font-medium text-xs; }
+  .change-warn { @apply inline-flex items-center text-amber-600 font-medium text-xs; }
 
-  /* ── Smooth card hover ── */
+  /* ── Smooth hover card ── */
   .card-hover {
-    @apply transition-all duration-200 hover:shadow-card-hover hover:-translate-y-px;
+    @apply transition-all duration-200 hover:shadow-md hover:-translate-y-px;
   }
-
-  /* ── Typography ── */
-  .text-balance { text-wrap: balance; }
 }
 
 /* Scrollbar */

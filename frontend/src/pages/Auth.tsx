@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Scissors, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,6 @@ import { loginUser, signupUser } from "@/lib/api";
 
 export default function Auth() {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
-  if (token) return <Navigate to="/dashboard" replace />;
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [showPw, setShowPw] = useState(false);
@@ -53,12 +51,10 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen hero-bg flex items-center justify-center px-4 py-12">
-      {/* Background accent */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-96 w-96 bg-sky-200/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-96 w-96 bg-teal-200/20 rounded-full blur-3xl" />
-      </div>
+    <div className="relative min-h-screen hero-bg flex items-center justify-center px-4 py-12 overflow-hidden">
+      {/* Background accent blobs */}
+      <div className="absolute -top-40 -right-40 h-96 w-96 bg-sky-200/30 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -left-40 h-96 w-96 bg-teal-200/20 rounded-full blur-3xl pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}
