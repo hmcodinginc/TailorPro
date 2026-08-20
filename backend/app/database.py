@@ -6,20 +6,51 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 load_dotenv()
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tms.db")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///./tms.db"
+)
 
-connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
+# Fix old/incorrect PostgreSQL prefixes
+if DATABASE_URL.startswith("ppostgresql://"):
+    DATABASE_URL = DATABASE_URL.replace(
+        "ppostgresql://",
+        "postgresql://",
+        1
+    )
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args)
+elif DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgres://",
+        "postgresql://",
+        1
+    )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={
+            "check_same_thread": False
+        }
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True
+    )
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
 
 Base = declarative_base()
 
 
-# Dependency for database session
 def get_db():
     db = SessionLocal()
+
     try:
         yield db
     finally:
