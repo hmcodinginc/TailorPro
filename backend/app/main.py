@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from .database import engine
 from . import models
 
-from .routers import customers, orders, measurements
+from .routers import customers, orders, measurements, dashboard
 from .routers import auth
 from .routers import invoices
 
@@ -48,6 +48,7 @@ app.include_router(orders, prefix="/api")
 app.include_router(measurements, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(invoices.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
 
 # ✅ Home route
 @app.get("/")

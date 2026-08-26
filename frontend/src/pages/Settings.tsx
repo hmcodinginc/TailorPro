@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { changePassword } from "@/lib/api";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
@@ -59,6 +60,47 @@ export default function Settings() {
   const [shop, setShop]     = useState({ shopName: "TailorPro Studio", address: "123 Fashion Street, Mumbai", gst: "", currency: "INR" });
   const [notifs, setNotifs] = useState({ orderAlerts: true, dueDateReminders: true, paymentAlerts: true, weeklyReport: false });
   const [look, setLook]     = useState({ theme: "light", accent: "sky" });
+  
+  const [passwordData, setPasswordData] = useState({ current_password: "", new_password: "", confirm_password: "" });
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess(false);
+
+    if (!passwordData.current_password || !passwordData.new_password || !passwordData.confirm_password) {
+      return setPasswordError("Please fill in all password fields.");
+    }
+
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      return setPasswordError("New passwords do not match.");
+    }
+
+    if (passwordData.new_password.length < 6) {
+      return setPasswordError("New password must be at least 6 characters long.");
+    }
+
+    try {
+      setPasswordLoading(true);
+      await changePassword({
+        current_password: passwordData.current_password,
+        new_password: passwordData.new_password
+      });
+      setPasswordSuccess(true);
+      setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
+      
+      // Optionally handle logout if we want them to re-login after password change
+      // or rely on the front-end to just keep using the old access token until it expires
+      // and refresh token revocation logs them out later.
+    } catch (error: any) {
+      setPasswordError(error.message || "Failed to change password.");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   const handleSave = () => {
     setSaved(true);
@@ -230,21 +272,61 @@ export default function Settings() {
 
             {/* Security */}
             {tab === "security" && (
-              <div className="space-y-4">
-                {[
-                  { label: "Current Password",     type: "password" },
-                  { label: "New Password",          type: "password" },
-                  { label: "Confirm New Password",  type: "password" },
-                ].map(({ label, type }) => (
-                  <div key={label} className="space-y-1.5">
-                    <Label className="text-sm font-medium text-gray-700">{label}</Label>
-                    <Input type={type} className="h-9 rounded-xl border-gray-200" placeholder="••••••••" />
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                {passwordError && (
+                  <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl">
+                    {passwordError}
                   </div>
-                ))}
-                <Button variant="outline" size="sm" className="text-sm rounded-xl border-gray-200 mt-1">
-                  Update Password
+                )}
+                {passwordSuccess && (
+                  <div className="p-3 bg-green-50 text-green-700 text-sm rounded-xl">
+                    Password updated successfully.
+                  </div>
+                )}
+                
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Current Password</Label>
+                  <Input 
+                    type="password" 
+                    value={passwordData.current_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, current_password: e.target.value }))}
+                    className="h-9 rounded-xl border-gray-200" 
+                    placeholder="••••••••" 
+                  />
+                </div>
+                
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">New Password</Label>
+                  <Input 
+                    type="password" 
+                    value={passwordData.new_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, new_password: e.target.value }))}
+                    className="h-9 rounded-xl border-gray-200" 
+                    placeholder="••••••••" 
+                  />
+                </div>
+                
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Confirm New Password</Label>
+                  <Input 
+                    type="password" 
+                    value={passwordData.confirm_password}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirm_password: e.target.value }))}
+                    className="h-9 rounded-xl border-gray-200" 
+                    placeholder="••••••••" 
+                  />
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  disabled={passwordLoading}
+                  variant="outline" 
+                  size="sm" 
+                  className="text-sm rounded-xl border-gray-200 mt-1"
+                >
+                  {passwordLoading ? "Updating..." : "Update Password"}
                 </Button>
-              </div>
+              </form>
             )}
           </div>
 
