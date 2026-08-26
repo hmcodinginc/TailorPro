@@ -20,8 +20,40 @@ app = FastAPI()
 # ✅ STEP 2: Mount uploads folder
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# ✅ STEP 3: Create DB tables
+# ✅ STEP 3: Create DB tables & auto-migrate missing columns
 models.Base.metadata.create_all(bind=engine)
+
+def auto_migrate_db():
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        with engine.begin() as conn:
+            if "users" in tables:
+                user_cols = [c["name"] for c in inspector.get_columns("users")]
+                for col, col_type in [
+                    ("name", "VARCHAR"),
+                    ("phone", "VARCHAR"),
+                    ("business_id", "INTEGER"),
+                    ("email_verified", "BOOLEAN DEFAULT 0")
+                ]:
+                    if col not in user_cols:
+                        conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
+
+            if "measurements" in tables:
+                m_cols = [c["name"] for c in inspector.get_columns("measurements")]
+                for col, col_type in [
+                    ("gender", "VARCHAR"),
+                    ("upper_chest", "FLOAT"),
+                    ("under_bust", "FLOAT"),
+                    ("calf", "FLOAT")
+                ]:
+                    if col not in m_cols:
+                        conn.execute(text(f"ALTER TABLE measurements ADD COLUMN {col} {col_type}"))
+    except Exception as e:
+        print(f"Auto-migration check notice: {e}")
+
+auto_migrate_db()
 
 # ✅ STEP 4: CORS
 app.add_middleware(

@@ -16,6 +16,7 @@ def get_measurements(db: Session = Depends(database.get_db), current_business: m
 def create_measurement(
     customer_id:   int   = Form(...),
     garment_type:  str   = Form(...),
+    gender:        str   = Form(None),
     chest:         float = Form(None),
     waist:         float = Form(None),
     hips:          float = Form(None),
@@ -38,6 +39,9 @@ def create_measurement(
     bottom_width:  float = Form(None),
     rise:          float = Form(None),
     flare:         float = Form(None),
+    upper_chest:   float = Form(None),
+    under_bust:    float = Form(None),
+    calf:          float = Form(None),
     notes:         str   = Form(None),
     file: UploadFile = File(None),
     db: Session = Depends(database.get_db),
@@ -51,7 +55,7 @@ def create_measurement(
         image_path = file_location
 
     m = models.Measurement(
-        customer_id=customer_id, garment_type=garment_type,
+        customer_id=customer_id, garment_type=garment_type, gender=gender,
         chest=chest, waist=waist, hips=hips, shoulder=shoulder,
         sleeve=sleeve, inseam=inseam, neck=neck,
         bust=bust, hip=hip, armhole=armhole,
@@ -59,6 +63,7 @@ def create_measurement(
         length=length, neck_depth=neck_depth, neck_width=neck_width,
         collar=collar, thigh=thigh, knee=knee, ankle=ankle,
         bottom_width=bottom_width, rise=rise, flare=flare,
+        upper_chest=upper_chest, under_bust=under_bust, calf=calf,
         notes=notes, image=image_path, business_id=current_business.id
     )
     db.add(m)
@@ -71,6 +76,7 @@ def update_measurement(
     id:            int,
     customer_id:   int   = Form(...),
     garment_type:  str   = Form(...),
+    gender:        str   = Form(None),
     chest:         float = Form(None),
     waist:         float = Form(None),
     hips:          float = Form(None),
@@ -93,6 +99,9 @@ def update_measurement(
     bottom_width:  float = Form(None),
     rise:          float = Form(None),
     flare:         float = Form(None),
+    upper_chest:   float = Form(None),
+    under_bust:    float = Form(None),
+    calf:          float = Form(None),
     notes:         str   = Form(None),
     file: UploadFile = File(None),
     db: Session = Depends(database.get_db),
@@ -104,6 +113,7 @@ def update_measurement(
 
     m.customer_id = customer_id
     m.garment_type = garment_type
+    m.gender = gender
     m.chest = chest;   m.waist = waist;  m.hips = hips
     m.shoulder = shoulder; m.sleeve = sleeve; m.inseam = inseam; m.neck = neck
     m.bust = bust;     m.hip = hip;      m.armhole = armhole
@@ -112,6 +122,7 @@ def update_measurement(
     m.collar = collar; m.thigh = thigh;  m.knee = knee
     m.ankle = ankle;   m.bottom_width = bottom_width
     m.rise = rise;     m.flare = flare;  m.notes = notes
+    m.upper_chest = upper_chest; m.under_bust = under_bust; m.calf = calf
 
     if file:
         file_location = f"uploads/{file.filename}"
