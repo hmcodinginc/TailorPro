@@ -46,6 +46,22 @@ export const loginUser = (data: any) =>
 export const signupUser = (data: any) =>
   request("/auth/signup", { method: "POST", body: jsonBody(data) })
 
+// CHANGE PASSWORD
+export const changePassword = (data: any) =>
+  request("/auth/change-password", { method: "POST", body: jsonBody(data) })
+
+// FORGOT PASSWORD
+export const forgotPassword = (data: { email: string }) =>
+  request("/auth/forgot-password", { method: "POST", body: jsonBody(data) })
+
+// RESET PASSWORD
+export const resetPassword = (data: { token: string; new_password: string }) =>
+  request("/auth/reset-password", { method: "POST", body: jsonBody(data) })
+
+// VERIFY EMAIL
+export const verifyEmail = (data: { token: string }) =>
+  request("/auth/verify-email", { method: "POST", body: jsonBody(data) })
+
 // CUSTOMERS
 export const getCustomers = () => request("/customers/")
 

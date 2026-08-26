@@ -6,10 +6,15 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 load_dotenv()
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///./tms.db"
-)
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    if ENVIRONMENT == "production":
+        raise RuntimeError("DATABASE_URL is required in production environment.")
+    else:
+        DATABASE_URL = "sqlite:///./tms.db"
 
 # Fix old/incorrect PostgreSQL prefixes
 if DATABASE_URL.startswith("ppostgresql://"):

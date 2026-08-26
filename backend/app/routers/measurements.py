@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from .. import models, database
+from ..core.dependencies import get_current_business
 import shutil, os
 
 router = APIRouter(prefix="/measurements", tags=["Measurements"])
@@ -8,8 +9,8 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/")
-def get_measurements(db: Session = Depends(database.get_db)):
-    return db.query(models.Measurement).all()
+def get_measurements(db: Session = Depends(database.get_db), current_business: models.Business = Depends(get_current_business)):
+    return db.query(models.Measurement).filter(models.Measurement.business_id == current_business.id).all()
 
 @router.post("/")
 def create_measurement(
@@ -40,6 +41,7 @@ def create_measurement(
     notes:         str   = Form(None),
     file: UploadFile = File(None),
     db: Session = Depends(database.get_db),
+    current_business: models.Business = Depends(get_current_business)
 ):
     image_path = None
     if file:
@@ -57,7 +59,7 @@ def create_measurement(
         length=length, neck_depth=neck_depth, neck_width=neck_width,
         collar=collar, thigh=thigh, knee=knee, ankle=ankle,
         bottom_width=bottom_width, rise=rise, flare=flare,
-        notes=notes, image=image_path,
+        notes=notes, image=image_path, business_id=current_business.id
     )
     db.add(m)
     db.commit()
@@ -94,8 +96,9 @@ def update_measurement(
     notes:         str   = Form(None),
     file: UploadFile = File(None),
     db: Session = Depends(database.get_db),
+    current_business: models.Business = Depends(get_current_business)
 ):
-    m = db.query(models.Measurement).filter(models.Measurement.id == id).first()
+    m = db.query(models.Measurement).filter(models.Measurement.id == id, models.Measurement.business_id == current_business.id).first()
     if not m:
         raise HTTPException(status_code=404, detail="Measurement not found")
 

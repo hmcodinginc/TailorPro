@@ -2,36 +2,31 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models, schemas
+from ..core.dependencies import get_current_business
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
 
-
 @router.get("/")
-def get_customers(db: Session = Depends(get_db)):
-    return db.query(models.Customer).all()
-
+def get_customers(db: Session = Depends(get_db), current_business: models.Business = Depends(get_current_business)):
+    return db.query(models.Customer).filter(models.Customer.business_id == current_business.id).all()
 
 @router.post("/")
-def create_customer(data: schemas.CustomerCreate, db: Session = Depends(get_db)):
-
+def create_customer(data: schemas.CustomerCreate, db: Session = Depends(get_db), current_business: models.Business = Depends(get_current_business)):
     customer = models.Customer(
         name=data.name,
         phone=data.phone,
         email=data.email,
-        address=data.address
+        address=data.address,
+        business_id=current_business.id
     )
-
     db.add(customer)
     db.commit()
     db.refresh(customer)
-
     return customer
 
-
 @router.put("/{id}")
-def update_customer(id: int, data: schemas.CustomerCreate, db: Session = Depends(get_db)):
-
-    customer = db.query(models.Customer).filter(models.Customer.id == id).first()
+def update_customer(id: int, data: schemas.CustomerCreate, db: Session = Depends(get_db), current_business: models.Business = Depends(get_current_business)):
+    customer = db.query(models.Customer).filter(models.Customer.id == id, models.Customer.business_id == current_business.id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
@@ -42,18 +37,14 @@ def update_customer(id: int, data: schemas.CustomerCreate, db: Session = Depends
 
     db.commit()
     db.refresh(customer)
-
     return customer
 
-
 @router.delete("/{id}")
-def delete_customer(id: int, db: Session = Depends(get_db)):
-
-    customer = db.query(models.Customer).filter(models.Customer.id == id).first()
+def delete_customer(id: int, db: Session = Depends(get_db), current_business: models.Business = Depends(get_current_business)):
+    customer = db.query(models.Customer).filter(models.Customer.id == id, models.Customer.business_id == current_business.id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
     db.delete(customer)
     db.commit()
-
     return {"message": "Customer deleted"}
