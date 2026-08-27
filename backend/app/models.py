@@ -4,6 +4,15 @@ from sqlalchemy.orm import relationship
 from .database import Base
 from datetime import datetime
 
+class SubscriptionStatus(str, enum.Enum):
+    TRIAL = "TRIAL"
+    ACTIVE_MONTHLY = "ACTIVE_MONTHLY"
+    ACTIVE_YEARLY = "ACTIVE_YEARLY"
+    TRIAL_EXPIRED = "TRIAL_EXPIRED"
+    PAYMENT_FAILED = "PAYMENT_FAILED"
+    SUSPENDED = "SUSPENDED"
+    CUSTOM = "CUSTOM"
+
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
     id = Column(Integer, primary_key=True, index=True)
@@ -16,6 +25,11 @@ class Business(Base):
     __tablename__ = "businesses"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
+    subscription_status = Column(SAEnum(SubscriptionStatus), default=SubscriptionStatus.TRIAL, nullable=False)
+    trial_started_at = Column(DateTime, default=datetime.utcnow, nullable=True)
+    trial_ends_at = Column(DateTime, nullable=True)
+    subscription_ends_at = Column(DateTime, nullable=True)
+    custom_client_limit = Column(Integer, nullable=True)
     
     users = relationship("User", back_populates="business")
 
@@ -28,8 +42,27 @@ class User(Base):
     phone = Column(String, nullable=True)
     business_id = Column(Integer, ForeignKey("businesses.id"), nullable=True)
     email_verified = Column(Boolean, default=False)
+    phone_verified = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
     
     business = relationship("Business", back_populates="users")
+
+class TrialClaim(Base):
+    __tablename__ = "trial_claims"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True)
+    phone = Column(String, index=True)
+    trial_started_at = Column(DateTime, default=datetime.utcnow)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=True)
+
+class OTPVerification(Base):
+    __tablename__ = "otp_verifications"
+    id = Column(Integer, primary_key=True, index=True)
+    phone_or_email = Column(String, index=True)
+    otp_code = Column(String)
+    purpose = Column(String, default="phone_verification")
+    expires_at = Column(DateTime)
+    verified = Column(Boolean, default=False)
 
 class Customer(Base):
     __tablename__ = "customers"

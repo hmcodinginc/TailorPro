@@ -11,6 +11,7 @@ from . import models
 from .routers import customers, orders, measurements, dashboard
 from .routers import auth
 from .routers import invoices
+from .routers import subscriptions
 
 load_dotenv()
 
@@ -35,10 +36,24 @@ def auto_migrate_db():
                     ("name", "VARCHAR"),
                     ("phone", "VARCHAR"),
                     ("business_id", "INTEGER"),
-                    ("email_verified", "BOOLEAN DEFAULT 0")
+                    ("email_verified", "BOOLEAN DEFAULT 0"),
+                    ("phone_verified", "BOOLEAN DEFAULT 0"),
+                    ("is_admin", "BOOLEAN DEFAULT 0")
                 ]:
                     if col not in user_cols:
                         conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
+
+            if "businesses" in tables:
+                biz_cols = [c["name"] for c in inspector.get_columns("businesses")]
+                for col, col_type in [
+                    ("subscription_status", "VARCHAR DEFAULT 'TRIAL'"),
+                    ("trial_started_at", "DATETIME"),
+                    ("trial_ends_at", "DATETIME"),
+                    ("subscription_ends_at", "DATETIME"),
+                    ("custom_client_limit", "INTEGER")
+                ]:
+                    if col not in biz_cols:
+                        conn.execute(text(f"ALTER TABLE businesses ADD COLUMN {col} {col_type}"))
 
             if "measurements" in tables:
                 m_cols = [c["name"] for c in inspector.get_columns("measurements")]
@@ -81,6 +96,7 @@ app.include_router(measurements, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(invoices.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(subscriptions.router, prefix="/api")
 
 # ✅ Home route
 @app.get("/")

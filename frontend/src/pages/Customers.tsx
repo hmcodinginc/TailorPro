@@ -43,6 +43,7 @@ export default function Customers() {
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [limitModalOpen, setLimitModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
 
@@ -58,8 +59,14 @@ export default function Customers() {
       await createMut.mutateAsync(form);
       setOpen(false);
       setForm(emptyForm);
-    } catch {
-      setError("Failed to add customer.");
+    } catch (err: any) {
+      const detailMsg = err?.response?.data?.detail || err?.message || "";
+      if (typeof detailMsg === "string" && detailMsg.includes("10-client limit")) {
+        setOpen(false);
+        setLimitModalOpen(true);
+      } else {
+        setError(typeof detailMsg === "string" ? detailMsg : "Failed to add customer.");
+      }
     }
   };
 
@@ -71,10 +78,44 @@ export default function Customers() {
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
 
+      {/* Trial Limit Reached Modal */}
+      <Dialog open={limitModalOpen} onOpenChange={setLimitModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-amber-600 flex items-center gap-2">
+              <span>Free Trial Limit Reached</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-foreground">
+              You've reached the 10-client limit for your free trial. Subscribe to continue adding clients.
+            </p>
+            <div className="p-3 bg-muted/60 rounded-xl text-xs text-muted-foreground border">
+              Your existing customer profiles and measurements remain safely stored and fully accessible.
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setLimitModalOpen(false)}>
+                Cancel
+              </Button>
+              <Link to="/subscription" className="flex-1">
+                <Button className="w-full gradient-brand text-white rounded-xl">
+                  Subscribe to Continue
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <motion.div variants={itemV} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Customers</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-gray-900">Customers</h1>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 font-medium">
+              {customers.length} Client Records
+            </span>
+          </div>
           <p className="text-sm text-gray-500 mt-0.5">Manage your client profiles and measurements</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>

@@ -12,6 +12,7 @@ import Invoices     from "./pages/Invoices"
 import Inventory    from "./pages/Inventory"
 import Reports      from "./pages/Reports"
 import Settings     from "./pages/Settings"
+import Subscription from "./pages/Subscription"
 import AppLayout    from "./components/AppLayout"
 
 /* ── Auth guards ────────────────────────────────────────────────────── */
@@ -123,6 +124,12 @@ function AnimatedRoutes() {
         <Route path="/settings" element={
           <ProtectedRoute>
             <AppLayout><Settings /></AppLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/subscription" element={
+          <ProtectedRoute>
+            <AppLayout><Subscription /></AppLayout>
           </ProtectedRoute>
         } />
 

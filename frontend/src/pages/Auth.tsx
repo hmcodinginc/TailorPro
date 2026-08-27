@@ -22,7 +22,7 @@ export default function Auth() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   
-  const [form, setForm] = useState({ name: "", business_name: "", email: "", password: "", confirm: "" });
+  const [form, setForm] = useState({ name: "", business_name: "", phone: "", email: "", password: "", confirm: "" });
 
   useEffect(() => {
     if (urlToken && urlAction === "verify") {
@@ -48,7 +48,7 @@ export default function Auth() {
   const switchMode = (newMode: "login" | "signup" | "forgot") => {
     setMode(newMode);
     clearMessages();
-    setForm({ name: "", business_name: "", email: "", password: "", confirm: "" });
+    setForm({ name: "", business_name: "", phone: "", email: "", password: "", confirm: "" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,9 +64,15 @@ export default function Auth() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const res: any = await signupUser({ name: form.name, business_name: form.business_name, email: form.email, password: form.password });
-        setSuccessMsg(res.message || "Account created! Please check your email to verify your account.");
-        setForm({ name: "", business_name: "", email: "", password: "", confirm: "" });
+        const res: any = await signupUser({
+          name: form.name,
+          business_name: form.business_name,
+          phone: form.phone,
+          email: form.email,
+          password: form.password
+        });
+        setSuccessMsg(res.message || "Account created! 30-day free trial activated.");
+        setForm({ name: "", business_name: "", phone: "", email: "", password: "", confirm: "" });
       } else if (mode === "login") {
         const data: any = await loginUser({ email: form.email, password: form.password });
         if (data?.access_token) {
@@ -168,13 +174,24 @@ export default function Auth() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm font-medium text-gray-700">Studio / Business Name</Label>
+                    <Label className="text-sm font-medium text-gray-700 font-sans">Studio / Business Name</Label>
                     <Input
                       type="text"
                       className="h-10 rounded-xl border-gray-200 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400"
                       placeholder="John's Tailor Shop"
                       value={form.business_name}
                       onChange={(e) => setForm({ ...form, business_name: e.target.value })}
+                      required={mode === "signup"}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-gray-700 font-sans">Phone Number (Required for 30-Day Trial)</Label>
+                    <Input
+                      type="tel"
+                      className="h-10 rounded-xl border-gray-200 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400"
+                      placeholder="+91 98765 43210"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
                       required={mode === "signup"}
                     />
                   </div>

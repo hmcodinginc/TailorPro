@@ -18,6 +18,12 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
   })
 
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem("token")
+      if (typeof window !== "undefined" && window.location.pathname !== "/auth" && window.location.pathname !== "/") {
+        window.location.href = "/auth"
+      }
+    }
     const errorData = await res.json().catch(() => ({}))
     // FastAPI returns detail as array for 422 validation errors
     let message = `Request failed: ${res.status}`
