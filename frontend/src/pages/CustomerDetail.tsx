@@ -1,80 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom"
 import { useEffect, useState } from "react"
-import { Ruler, Phone, Mail, MapPin, ShoppingBag, FileText, ArrowLeft } from "lucide-react"
+import { Ruler, Phone, Mail, MapPin, ShoppingBag, FileText, ArrowLeft, Download } from "lucide-react"
 import { getCustomers, getMeasurements, getOrders, getInvoices } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-
-const GARMENT_TEMPLATES: Record<string, {
-  label: string
-  emoji: string
-  fields: { key: string; label: string }[]
-}> = {
-  Kurta: {
-    label: "Kurta (Straight Kurti)", emoji: "👗",
-    fields: [
-      { key: "bust", label: "Bust / Chest" }, { key: "waist", label: "Waist" },
-      { key: "hip", label: "Hip" }, { key: "shoulder", label: "Shoulder Width" },
-      { key: "armhole", label: "Armhole" }, { key: "sleeve_length", label: "Sleeve Length" },
-      { key: "sleeve_round", label: "Sleeve Round" }, { key: "length", label: "Kurta Length" },
-      { key: "neck_depth", label: "Neck Depth (Front & Back)" }, { key: "neck_width", label: "Neck Width" },
-    ],
-  },
-  Pants: {
-    label: "Pants (Straight / Trouser)", emoji: "👖",
-    fields: [
-      { key: "waist", label: "Waist" }, { key: "hip", label: "Hip" },
-      { key: "thigh", label: "Thigh Round" }, { key: "knee", label: "Knee Round" },
-      { key: "ankle", label: "Bottom / Ankle Round" }, { key: "length", label: "Length (Waist to Ankle)" },
-      { key: "rise", label: "Rise (Crotch Depth)" },
-    ],
-  },
-  Plazo: {
-    label: "Plazo (Palazzo Pants)", emoji: "👗",
-    fields: [
-      { key: "waist", label: "Waist" }, { key: "hip", label: "Hip" },
-      { key: "length", label: "Length" }, { key: "bottom_width", label: "Bottom Width" },
-      { key: "rise", label: "Rise" },
-    ],
-  },
-  Gown: {
-    label: "Gown", emoji: "👗",
-    fields: [
-      { key: "bust", label: "Bust" }, { key: "waist", label: "Waist" },
-      { key: "hip", label: "Hip" }, { key: "shoulder", label: "Shoulder" },
-      { key: "armhole", label: "Armhole" }, { key: "sleeve_length", label: "Sleeve Length" },
-      { key: "length", label: "Length (Shoulder to Floor)" }, { key: "neck_depth", label: "Neck Depth & Width" },
-    ],
-  },
-  Shirt: {
-    label: "Shirt (Men / Women)", emoji: "👔",
-    fields: [
-      { key: "chest", label: "Chest" }, { key: "waist", label: "Waist" },
-      { key: "hip", label: "Hip (for long shirts)" }, { key: "shoulder", label: "Shoulder" },
-      { key: "sleeve_length", label: "Sleeve Length" }, { key: "sleeve_round", label: "Sleeve Round" },
-      { key: "collar", label: "Neck / Collar Size" }, { key: "length", label: "Shirt Length" },
-    ],
-  },
-  Leggings: {
-    label: "Leggings", emoji: "👖",
-    fields: [
-      { key: "waist", label: "Waist" }, { key: "hip", label: "Hip" },
-      { key: "thigh", label: "Thigh" }, { key: "length", label: "Length" },
-      { key: "ankle", label: "Ankle" },
-    ],
-  },
-  Anarkali: {
-    label: "Anarkali Kurti", emoji: "👗",
-    fields: [
-      { key: "bust", label: "Bust" }, { key: "waist", label: "Waist" },
-      { key: "shoulder", label: "Shoulder" }, { key: "armhole", label: "Armhole" },
-      { key: "sleeve_length", label: "Sleeve Length" }, { key: "length", label: "Length (below knee / floor)" },
-      { key: "neck_depth", label: "Neck Depth & Width" }, { key: "flare", label: "Flare (Umbrella fabric)" },
-    ],
-  },
-}
-
+import { findGarmentTemplate } from "@/lib/garments"
+import { generateMeasurementPDF } from "@/lib/measurementPdf"
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   const s = status?.toLowerCase()
@@ -107,11 +39,10 @@ export default function CustomerDetail() {
     load()
   }, [id])
 
-  if (!customer) return <p className="p-6 text-muted-foreground">Loading...</p>
+  if (!customer) return <p className="p-6 text-muted-foreground">Loading customer details...</p>
 
   return (
     <div className="space-y-6 p-4 max-w-4xl mx-auto">
-
       <Button variant="outline" size="sm" onClick={() => navigate("/customers")}>
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Customers
@@ -120,7 +51,7 @@ export default function CustomerDetail() {
       {/* ── Customer Profile ── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">{customer.name}</CardTitle>
+          <CardTitle className="text-xl font-bold">{customer.name}</CardTitle>
         </CardHeader>
         <CardContent className="grid sm:grid-cols-2 gap-3 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -142,8 +73,8 @@ export default function CustomerDetail() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Ruler className="h-5 w-5" />
-            Measurements
+            <Ruler className="h-5 w-5 text-indigo-600" />
+            <span>Measurements</span>
             <span className="ml-auto text-sm font-normal text-muted-foreground">
               {measurements.length} record{measurements.length !== 1 ? "s" : ""}
             </span>
@@ -155,49 +86,72 @@ export default function CustomerDetail() {
           )}
 
           {measurements.map((m: any) => {
-            const template = m.garment_type ? GARMENT_TEMPLATES[m.garment_type] : null
+            const gender = m.gender || (findGarmentTemplate(m.garment_type)?.gender ?? "Men")
+            const template = findGarmentTemplate(m.garment_type, gender)
             const filledFields = template
               ? template.fields.filter((f) => m[f.key] != null && m[f.key] !== "")
               : []
 
             return (
-              <div key={m.id} className="border rounded-lg p-4 space-y-3">
-             
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{template?.emoji ?? "📏"}</span>
-                  <div>
-                    <p className="font-semibold text-sm">
-                      {template?.label ?? m.garment_type}
-                    </p>
-                    {m.created_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Recorded on{" "}
-                        {new Date(m.created_at).toLocaleDateString("en-IN", {
-                          day: "numeric", month: "short", year: "numeric",
-                        })}
-                      </p>
-                    )}
+              <div key={m.id} className="border rounded-xl p-4 space-y-3 bg-card shadow-xs">
+                <div className="flex items-center justify-between gap-3 border-b pb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{template?.emoji ?? "📏"}</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm">
+                          {template?.label ?? m.garment_type}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={
+                            gender === "Women"
+                              ? "bg-pink-50 text-pink-700 border-pink-200 text-[10px]"
+                              : "bg-blue-50 text-blue-700 border-blue-200 text-[10px]"
+                          }
+                        >
+                          {gender === "Women" ? "Women 👩" : "Men 👨"}
+                        </Badge>
+                      </div>
+                      {m.created_at && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Recorded on{" "}
+                          {new Date(m.created_at).toLocaleDateString("en-IN", {
+                            day: "numeric", month: "short", year: "numeric",
+                          })}
+                        </p>
+                      )}
+                    </div>
                   </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-semibold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    onClick={() => generateMeasurementPDF({ measurement: m, customer })}
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    Download PDF 📄
+                  </Button>
                 </div>
 
-        
                 {filledFields.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
                     {filledFields.map((f) => (
                       <div key={f.key} className="flex flex-col">
                         <span className="text-xs text-muted-foreground">{f.label}</span>
-                        <span className="text-sm font-medium">{m[f.key]}"</span>
+                        <span className="text-sm font-semibold">{m[f.key]}"</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No values recorded.</p>
+                  <p className="text-xs text-muted-foreground">No specific measurement values recorded.</p>
                 )}
 
                 {/* Notes */}
                 {m.notes && (
-                  <p className="text-xs text-muted-foreground border-t pt-2">
-                    📝 {m.notes}
+                  <p className="text-xs text-muted-foreground border-t pt-2 bg-amber-50/50 p-2 rounded">
+                    📝 <span className="font-medium">{m.notes}</span>
                   </p>
                 )}
 
@@ -220,7 +174,7 @@ export default function CustomerDetail() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5" />
-            Orders
+            <span>Orders</span>
             <span className="ml-auto text-sm font-normal text-muted-foreground">
               {orders.length} order{orders.length !== 1 ? "s" : ""}
             </span>
@@ -257,7 +211,7 @@ export default function CustomerDetail() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Invoices
+            <span>Invoices</span>
             <span className="ml-auto text-sm font-normal text-muted-foreground">
               {invoices.length} invoice{invoices.length !== 1 ? "s" : ""}
             </span>
@@ -289,7 +243,6 @@ export default function CustomerDetail() {
           ))}
         </CardContent>
       </Card>
-
     </div>
   )
 }
