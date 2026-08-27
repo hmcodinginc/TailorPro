@@ -4,7 +4,8 @@ from email.message import EmailMessage
 from dotenv import load_dotenv
 
 # Ensure environment variables are loaded before accessing them
-load_dotenv()
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+load_dotenv(dotenv_path=env_path, override=True)
 
 SMTP_USER = os.getenv("SMTP_USER", "tailorpro01@gmail.com")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")

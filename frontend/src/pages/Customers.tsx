@@ -33,11 +33,21 @@ function initials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 }
 
+export interface Customer {
+  id: number;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  [key: string]: unknown;
+}
+
 const emptyForm = { name: "", email: "", phone: "", address: "" };
 
 export default function Customers() {
   const qc = useQueryClient();
-  const { data: customers = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: getCustomers });
+  const { data: customersData = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: getCustomers });
+  const customers = customersData as Customer[];
   const createMut = useMutation({ mutationFn: addCustomer, onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }) });
   const deleteMut = useMutation({ mutationFn: deleteCustomer, onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }) });
 
@@ -47,7 +57,7 @@ export default function Customers() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
 
-  const filtered = customers.filter((c: any) =>
+  const filtered = customers.filter((c: Customer) =>
     c.name?.toLowerCase().includes(search.toLowerCase()) ||
     c.email?.toLowerCase().includes(search.toLowerCase())
   );
@@ -59,14 +69,9 @@ export default function Customers() {
       await createMut.mutateAsync(form);
       setOpen(false);
       setForm(emptyForm);
-    } catch (err: any) {
-      const detailMsg = err?.response?.data?.detail || err?.message || "";
-      if (typeof detailMsg === "string" && detailMsg.includes("10-client limit")) {
-        setOpen(false);
-        setLimitModalOpen(true);
-      } else {
-        setError(typeof detailMsg === "string" ? detailMsg : "Failed to add customer.");
-      }
+    } catch (err: Error | unknown) {
+      // Better error message
+      setError((err as Error).message || "Failed to add customer. Please ensure all required fields are filled.");
     }
   };
 
@@ -139,8 +144,8 @@ export default function Customers() {
                   <Input type="email" className="h-9 rounded-xl" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm">Phone</Label>
-                  <Input type="tel" className="h-9 rounded-xl" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <Label className="text-sm">Phone *</Label>
+                  <Input type="tel" className="h-9 rounded-xl" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -205,7 +210,7 @@ export default function Customers() {
         </motion.div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((c: any, idx: number) => {
+          {filtered.map((c: Customer, idx: number) => {
             const avatarClass = AVATAR_COLORS[idx % AVATAR_COLORS.length];
             return (
               <motion.div

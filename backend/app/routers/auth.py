@@ -72,7 +72,7 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
             name=user.name,
             phone=user.phone,
             business_id=new_business.id,
-            email_verified=True,
+            email_verified=False,
             phone_verified=True if user.phone else False,
             is_admin=is_first_user
         )
@@ -120,9 +120,11 @@ def login(request: Request, user_credentials: schemas.UserLogin, db: Session = D
         )
         
     if not user.email_verified:
-        # Auto-verify in development / local mode so user can sign in immediately
-        user.email_verified = True
-        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Please verify your email before logging in",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
         
     if user.password == user_credentials.password:
         user.password = get_password_hash(user_credentials.password)
@@ -236,12 +238,14 @@ def change_password(
 @router.post("/forgot-password")
 def forgot_password(request: schemas.EmailRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == request.email).first()
-    if user:
-        reset_token = create_reset_token(user.email)
-        send_password_reset_email(user.email, reset_token)
     
-    # Always return a generic success message to prevent email enumeration
-    return {"message": "If the email is registered, a password reset link has been sent."}
+    if not user:
+        raise HTTPException(status_code=404, detail="Email is not registered in our system.")
+        
+    reset_token = create_reset_token(user.email)
+    send_password_reset_email(user.email, reset_token)
+    
+    return {"message": "A password reset link has been sent to your email."}
 
 @router.post("/reset-password")
 def reset_password(request: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
@@ -300,3 +304,23 @@ def send_otp(request: schemas.EmailRequest): # Note: Reused schema for brevity, 
 @router.post("/verify-otp")
 def verify_otp(request: schemas.OTPRequest):
     raise HTTPException(status_code=501, detail="SMS provider not configured")
+
+
+@router.get('/debug-db')
+def debug_db(db: Session = Depends(get_db)):
+    from sqlalchemy import text
+    try:
+        # Check DB URL
+        from ..database import DATABASE_URL
+        masked_url = DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL
+        
+        # Check columns
+        res = db.execute(text('SELECT column_name FROM information_schema.columns WHERE table_name = \'businesses\''))
+        cols = [r[0] for r in res]
+        
+        return {
+            'db_url_host': masked_url,
+            'business_columns': cols
+        }
+    except Exception as e:
+        return {'error': str(e)}

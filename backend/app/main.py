@@ -11,66 +11,22 @@ from . import models
 from .routers import customers, orders, measurements, dashboard
 from .routers import auth
 from .routers import invoices
+from .routers import business
 from .routers import subscriptions
 
-load_dotenv()
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path=env_path, override=True)
 
-# ✅ STEP 1: Create app FIRST
+# STEP 1: Create app FIRST
 app = FastAPI()
 
-# ✅ STEP 2: Mount uploads folder
+# STEP 2: Mount uploads folder
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# ✅ STEP 3: Create DB tables & auto-migrate missing columns
+# STEP 3: Create DB tables
 models.Base.metadata.create_all(bind=engine)
 
-def auto_migrate_db():
-    try:
-        from sqlalchemy import inspect, text
-        inspector = inspect(engine)
-        tables = inspector.get_table_names()
-        with engine.begin() as conn:
-            if "users" in tables:
-                user_cols = [c["name"] for c in inspector.get_columns("users")]
-                for col, col_type in [
-                    ("name", "VARCHAR"),
-                    ("phone", "VARCHAR"),
-                    ("business_id", "INTEGER"),
-                    ("email_verified", "BOOLEAN DEFAULT 0"),
-                    ("phone_verified", "BOOLEAN DEFAULT 0"),
-                    ("is_admin", "BOOLEAN DEFAULT 0")
-                ]:
-                    if col not in user_cols:
-                        conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
-
-            if "businesses" in tables:
-                biz_cols = [c["name"] for c in inspector.get_columns("businesses")]
-                for col, col_type in [
-                    ("subscription_status", "VARCHAR DEFAULT 'TRIAL'"),
-                    ("trial_started_at", "DATETIME"),
-                    ("trial_ends_at", "DATETIME"),
-                    ("subscription_ends_at", "DATETIME"),
-                    ("custom_client_limit", "INTEGER")
-                ]:
-                    if col not in biz_cols:
-                        conn.execute(text(f"ALTER TABLE businesses ADD COLUMN {col} {col_type}"))
-
-            if "measurements" in tables:
-                m_cols = [c["name"] for c in inspector.get_columns("measurements")]
-                for col, col_type in [
-                    ("gender", "VARCHAR"),
-                    ("upper_chest", "FLOAT"),
-                    ("under_bust", "FLOAT"),
-                    ("calf", "FLOAT")
-                ]:
-                    if col not in m_cols:
-                        conn.execute(text(f"ALTER TABLE measurements ADD COLUMN {col} {col_type}"))
-    except Exception as e:
-        print(f"Auto-migration check notice: {e}")
-
-auto_migrate_db()
-
-# ✅ STEP 4: CORS
+# STEP 4: CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -84,21 +40,23 @@ app.add_middleware(
         ).split(",")
         if origin.strip()
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ STEP 5: Routers
+# STEP 5: Routers
 app.include_router(customers, prefix="/api")
 app.include_router(orders, prefix="/api")
 app.include_router(measurements, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(invoices.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(business.router, prefix="/api")
 app.include_router(subscriptions.router, prefix="/api")
 
-# ✅ Home route
+# Home route
 @app.get("/")
 def home():
     return {"message": "Tailor Management API Running"}

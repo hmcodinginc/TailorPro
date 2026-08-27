@@ -29,6 +29,20 @@ class ChangePasswordRequest(BaseModel):
 class VerifyEmailRequest(BaseModel):
     token: str
 
+class SendOTPRequest(BaseModel):
+    phone: str
+
+class VerifyOTPRequest(BaseModel):
+    phone: str
+    otp: str
+
+class SubscribeRequest(BaseModel):
+    plan: str
+
+class GrantTrialRequest(BaseModel):
+    business_id: int
+    days: int
+
 class OTPRequest(BaseModel):
     phone: str
     otp: str
@@ -131,17 +145,23 @@ class InvoiceResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# SUBSCRIPTION SCHEMAS
-class SubscribeRequest(BaseModel):
-    plan: str # "TAILORPRO_MONTHLY" or "TAILORPRO_YEARLY"
+# BUSINESS SCHEMA
+class BusinessUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gst_number: Optional[str] = None
+    logo_url: Optional[str] = None
 
-class GrantTrialRequest(BaseModel):
-    business_id: int
-    days: int = 30
+class BusinessResponse(BaseModel):
+    id: int
+    name: str
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gst_number: Optional[str] = None
+    logo_url: Optional[str] = None
 
-class SendOTPRequest(BaseModel):
-    phone: str
-
-class VerifyOTPRequest(BaseModel):
-    phone: str
-    otp: str
+    class Config:
+        from_attributes = True
