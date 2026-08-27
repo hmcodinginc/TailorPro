@@ -34,10 +34,37 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already registered")
             
-        new_business = models.Business(name=user.business_name)
+        # Anti-abuse check against trial claims ledger
+        normalized_email = user.email.strip().lower()
+        normalized_phone = user.phone.strip() if user.phone else None
+        
+        claim_query = db.query(models.TrialClaim).filter(models.TrialClaim.email == normalized_email)
+        if normalized_phone:
+            claim_query = db.query(models.TrialClaim).filter(
+                (models.TrialClaim.email == normalized_email) | (models.TrialClaim.phone == normalized_phone)
+            )
+        
+        existing_claim = claim_query.first()
+        if existing_claim:
+            raise HTTPException(
+                status_code=400,
+                detail="This email/phone has already used a TailorPro trial."
+            )
+            
+        now = datetime.utcnow()
+        new_business = models.Business(
+            name=user.business_name,
+            subscription_status=models.SubscriptionStatus.TRIAL,
+            trial_started_at=now,
+            trial_ends_at=now + timedelta(days=30)
+        )
         db.add(new_business)
         db.commit()
         db.refresh(new_business)
+        
+        # Check if first user in DB to auto-grant admin status for initial setup
+        user_count = db.query(models.User).count()
+        is_first_user = (user_count == 0)
         
         new_user = models.User(
             email=user.email,
@@ -45,11 +72,23 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
             name=user.name,
             phone=user.phone,
             business_id=new_business.id,
-            email_verified=True
+            email_verified=True,
+            phone_verified=True if user.phone else False,
+            is_admin=is_first_user
         )
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+        
+        # Log trial claim to prevent future abuse
+        trial_claim = models.TrialClaim(
+            email=normalized_email,
+            phone=normalized_phone or f"no_phone_{new_user.id}",
+            trial_started_at=now,
+            business_id=new_business.id
+        )
+        db.add(trial_claim)
+        db.commit()
         
         # Send verification email
         try:
@@ -58,7 +97,7 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         except Exception as e:
             logger.warning(f"Verification email notice: {e}")
         
-        return {"message": "Account created successfully."}
+        return {"message": "Account created successfully with 30-day free trial."}
     except HTTPException:
         raise
     except Exception as e:

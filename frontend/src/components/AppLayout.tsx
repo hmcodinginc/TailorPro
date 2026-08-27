@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, Ruler, ShoppingBag, FileText,
   Package, BarChart3, Settings, LogOut, Scissors, Menu, X,
-  Bell, Search, Moon, Sun, ChevronLeft, ChevronRight,
+  Bell, Search, Moon, Sun, ChevronLeft, ChevronRight, CreditCard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TrialWarningBanner from "./TrialWarningBanner";
 
 /* ── Navigation config ──────────────────────────────────────────────── */
 const NAV_GROUPS = [
@@ -20,8 +21,9 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "Finance",
+    label: "Commercial",
     items: [
+      { to: "/subscription", label: "Subscription", icon: CreditCard     },
       { to: "/invoices",    label: "Billing",      icon: FileText        },
       { to: "/inventory",   label: "Inventory",    icon: Package         },
     ],
@@ -289,6 +291,9 @@ export default function AppLayout({
             </button>
           </div>
         </header>
+
+        {/* Trial Warning Header Notification */}
+        <TrialWarningBanner />
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">

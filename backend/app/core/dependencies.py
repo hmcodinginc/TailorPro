@@ -38,3 +38,27 @@ def get_current_business(current_user: User = Depends(get_current_user), db: Ses
     if not business:
         raise HTTPException(status_code=403, detail="Business not found")
     return business
+
+def require_active_entitlement(business: Business = Depends(get_current_business)):
+    from .entitlements import is_account_allowed
+    allowed, reason, effective_status = is_account_allowed(business)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": reason,
+                "code": "ENTITLEMENT_RESTRICTED",
+                "status": effective_status.value
+            }
+        )
+    return business
+
+def require_customer_quota(business: Business = Depends(require_active_entitlement), db: Session = Depends(get_db)):
+    from .entitlements import check_client_limit
+    allowed, current_count, max_limit = check_client_limit(business, db)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You've reached the 10-client limit for your free trial. Subscribe to continue adding clients."
+        )
+    return business

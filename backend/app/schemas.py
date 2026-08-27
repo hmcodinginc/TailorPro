@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 from datetime import date
 from .models import InvoiceStatus, PaymentType
@@ -16,7 +16,7 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 class EmailRequest(BaseModel):
-    email: EmailStr
+    email: str
 
 class ResetPasswordRequest(BaseModel):
     token: str
@@ -85,7 +85,7 @@ class Order(OrderCreate):
 
 # USER & AUTH SCHEMA
 class UserCreate(BaseModel):
-    email: EmailStr
+    email: str
     password: str
     name: str
     business_name: str
@@ -130,3 +130,18 @@ class InvoiceResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# SUBSCRIPTION SCHEMAS
+class SubscribeRequest(BaseModel):
+    plan: str # "TAILORPRO_MONTHLY" or "TAILORPRO_YEARLY"
+
+class GrantTrialRequest(BaseModel):
+    business_id: int
+    days: int = 30
+
+class SendOTPRequest(BaseModel):
+    phone: str
+
+class VerifyOTPRequest(BaseModel):
+    phone: str
+    otp: str
