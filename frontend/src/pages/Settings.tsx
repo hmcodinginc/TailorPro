@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User, Store, Bell, Palette, Shield,
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { changePassword } from "@/lib/api";
+import { changePassword, getBusinessProfile, updateBusinessProfile } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
@@ -21,43 +22,72 @@ const TABS = [
   { id: "security",     label: "Security",      icon: Shield  },
 ];
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
+const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    onClick={() => onChange(!checked)}
+    className={cn(
+      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
+      checked ? "bg-sky-500" : "bg-gray-200"
+    )}
+  >
+    <span className="sr-only">Use setting</span>
+    <span
+      aria-hidden="true"
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/30",
-        checked ? "bg-sky-500" : "bg-gray-200"
-      )}
-    >
-      <span className={cn(
-        "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform",
+        "pointer-events-none absolute left-0.5 inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
         checked ? "translate-x-4" : "translate-x-0"
-      )} />
-    </button>
-  );
-}
+      )}
+    />
+  </button>
+);
 
-function SettingRow({
-  label, description, children,
-}: { label: string; description?: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
-      <div className="flex-1 min-w-0 mr-4">
-        <p className="text-sm font-medium text-gray-900">{label}</p>
-        {description && <p className="text-xs text-gray-400 mt-0.5">{description}</p>}
-      </div>
-      <div className="shrink-0">{children}</div>
+const SettingRow = ({ label, description, children }: { label: string; description: string; children: React.ReactNode }) => (
+  <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
+    <div className="space-y-0.5">
+      <Label className="text-sm font-medium text-gray-900">{label}</Label>
+      <p className="text-xs text-gray-500">{description}</p>
     </div>
-  );
-}
+    {children}
+  </div>
+);
 
 export default function Settings() {
+  const queryClient = useQueryClient();
   const [tab, setTab]       = useState("profile");
   const [saved, setSaved]   = useState(false);
   const [profile, setProfile] = useState({ name: "Tailor Studio", email: "admin@tailorpro.com", phone: "+91 98765 43210" });
-  const [shop, setShop]     = useState({ shopName: "TailorPro Studio", address: "123 Fashion Street, Mumbai", gst: "", currency: "INR" });
+  
+  const [shop, setShop] = useState({ name: "", address: "", phone: "", email: "", gst_number: "" });
+  
+  const { data: businessData, isLoading: businessLoading } = useQuery({
+    queryKey: ["business"],
+    queryFn: getBusinessProfile
+  });
+  
+  useEffect(() => {
+    if (businessData) {
+      setShop({
+        name: businessData.name || "",
+        address: businessData.address || "",
+        phone: businessData.phone || "",
+        email: businessData.email || "",
+        gst_number: businessData.gst_number || ""
+      });
+    }
+  }, [businessData]);
+
+  const updateBusinessMutation = useMutation({
+    mutationFn: updateBusinessProfile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["business"] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  });
+
   const [notifs, setNotifs] = useState({ orderAlerts: true, dueDateReminders: true, paymentAlerts: true, weeklyReport: false });
   const [look, setLook]     = useState({ theme: "light", accent: "sky" });
   
@@ -91,20 +121,20 @@ export default function Settings() {
       });
       setPasswordSuccess(true);
       setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
-      
-      // Optionally handle logout if we want them to re-login after password change
-      // or rely on the front-end to just keep using the old access token until it expires
-      // and refresh token revocation logs them out later.
-    } catch (error: any) {
-      setPasswordError(error.message || "Failed to change password.");
+    } catch (err: any) {
+      setPasswordError(err.message || "Failed to update password");
     } finally {
       setPasswordLoading(false);
     }
   };
 
   const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2200);
+    if (tab === "shop") {
+      updateBusinessMutation.mutate(shop);
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   };
 
   return (
@@ -190,16 +220,19 @@ export default function Settings() {
             {tab === "shop" && (
               <div className="space-y-4">
                 {[
-                  { label: "Shop Name",  key: "shopName" },
-                  { label: "Address",    key: "address"  },
-                  { label: "GST Number", key: "gst"      },
-                  { label: "Currency",   key: "currency" },
+                  { label: "Shop Name",  key: "name" },
+                  { label: "Phone",      key: "phone" },
+                  { label: "Email",      key: "email" },
+                  { label: "Address",    key: "address" },
+                  { label: "GST Number", key: "gst_number" },
                 ].map(({ label, key }) => (
                   <div key={key} className="space-y-1.5">
                     <Label className="text-sm font-medium text-gray-700">{label}</Label>
                     <Input className="h-9 rounded-xl border-gray-200"
                       value={(shop as any)[key]}
-                      onChange={(e) => setShop({ ...shop, [key]: e.target.value })} />
+                      onChange={(e) => setShop({ ...shop, [key]: e.target.value })} 
+                      disabled={businessLoading}
+                    />
                   </div>
                 ))}
               </div>

@@ -4,7 +4,7 @@ type RequestOptions = RequestInit & {
   rawBody?: boolean
 }
 
-async function request<T = any>(path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = localStorage.getItem("token")
   const isFormData = options.body instanceof FormData
 
@@ -31,7 +31,7 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
       message = errorData.detail
     } else if (Array.isArray(errorData.detail) && errorData.detail.length > 0) {
       // e.g. [{ loc: [...], msg: "field required", type: "..." }]
-      message = errorData.detail.map((e: any) => `${e.loc?.slice(-1)[0] ?? ""}: ${e.msg}`).join(", ")
+      message = errorData.detail.map((e: Record<string, unknown>) => `${(e.loc as string[])?.slice(-1)[0] ?? ""}: ${e.msg}`).join(", ")
     } else if (errorData.message) {
       message = errorData.message
     }
@@ -45,15 +45,15 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
 const jsonBody = (data: unknown) => JSON.stringify(data)
 
 // LOGIN
-export const loginUser = (data: any) =>
+export const loginUser = (data: unknown) =>
   request("/auth/login", { method: "POST", body: jsonBody(data) })
 
 // SIGNUP
-export const signupUser = (data: any) =>
+export const signupUser = (data: unknown) =>
   request("/auth/signup", { method: "POST", body: jsonBody(data) })
 
 // CHANGE PASSWORD
-export const changePassword = (data: any) =>
+export const changePassword = (data: unknown) =>
   request("/auth/change-password", { method: "POST", body: jsonBody(data) })
 
 // FORGOT PASSWORD
@@ -68,13 +68,18 @@ export const resetPassword = (data: { token: string; new_password: string }) =>
 export const verifyEmail = (data: { token: string }) =>
   request("/auth/verify-email", { method: "POST", body: jsonBody(data) })
 
+// BUSINESS PROFILE
+export const getBusinessProfile = () => request("/business/profile")
+export const updateBusinessProfile = (data: unknown) =>
+  request("/business/profile", { method: "PUT", body: jsonBody(data) })
+
 // CUSTOMERS
 export const getCustomers = () => request("/customers/")
 
-export const addCustomer = (data: any) =>
+export const addCustomer = (data: unknown) =>
   request("/customers/", { method: "POST", body: jsonBody(data) })
 
-export const updateCustomer = (id: number, data: any) =>
+export const updateCustomer = (id: number, data: unknown) =>
   request(`/customers/${id}`, { method: "PUT", body: jsonBody(data) })
 
 export const deleteCustomer = (id: number) =>
@@ -83,10 +88,10 @@ export const deleteCustomer = (id: number) =>
 // ORDERS
 export const getOrders = () => request("/orders/")
 
-export const addOrder = (data: any) =>
+export const addOrder = (data: unknown) =>
   request("/orders/", { method: "POST", body: jsonBody(data) })
 
-export const updateOrder = (id: number, data: any) =>
+export const updateOrder = (id: number, data: unknown) =>
   request(`/orders/${id}`, { method: "PUT", body: jsonBody(data) })
 
 export const deleteOrder = (id: number) =>
@@ -109,12 +114,12 @@ export const deleteMeasurement = (id: number) =>
 // INVOICES
 export const getInvoices = () => request("/invoices/")
 
-export const addInvoice = (data: any) =>
+export const addInvoice = (data: unknown) =>
   request("/invoices/", { method: "POST", body: jsonBody(data) })
 
 export const createInvoice = addInvoice
 
-export const updateInvoice = (id: number, data: any) =>
+export const updateInvoice = (id: number, data: unknown) =>
   request(`/invoices/${id}`, { method: "PUT", body: jsonBody(data) })
 
 export const deleteInvoice = (id: number) =>

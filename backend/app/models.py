@@ -25,11 +25,15 @@ class Business(Base):
     __tablename__ = "businesses"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
-    subscription_status = Column(SAEnum(SubscriptionStatus), default=SubscriptionStatus.TRIAL, nullable=False)
-    trial_started_at = Column(DateTime, default=datetime.utcnow, nullable=True)
+    subscription_status = Column(String, default="TRIAL", server_default="TRIAL", nullable=False)
+    address = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    gst_number = Column(String, nullable=True)
+    logo_url = Column(String, nullable=True)
+    trial_started_at = Column(DateTime, nullable=True)
     trial_ends_at = Column(DateTime, nullable=True)
     subscription_ends_at = Column(DateTime, nullable=True)
-    custom_client_limit = Column(Integer, nullable=True)
     
     users = relationship("User", back_populates="business")
 
