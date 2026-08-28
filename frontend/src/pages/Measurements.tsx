@@ -53,6 +53,7 @@ import {
 } from "@/lib/garments"
 import { generateMeasurementPDF } from "@/lib/measurementPdf"
 import { motion } from "framer-motion"
+import { GarmentVisualizer } from "@/components/GarmentVisualizer"
 
 type FormValues = Record<string, string>
 const emptyBase: FormValues = { customer_id: "", gender: "Men", garment_type: "", notes: "" }
@@ -91,6 +92,8 @@ function MeasurementForm({
   const garmentMap = getGarmentsByGender(activeGender)
   const template = form.garment_type ? findGarmentTemplate(form.garment_type, activeGender) : null
 
+  const [activeField, setActiveField] = useState<string | null>(null)
+
   const handleGenderChange = (selectedGender: "Men" | "Women") => {
     // Reset garment selection when switching gender
     setForm({
@@ -99,6 +102,7 @@ function MeasurementForm({
       garment_type: "",
       notes: form.notes,
     })
+    setActiveField(null)
   }
 
   const handleGarmentChange = (value: string) => {
@@ -109,6 +113,7 @@ function MeasurementForm({
       garment_type: value,
       notes: form.notes,
     })
+    setActiveField(null)
   }
 
   return (
@@ -194,29 +199,37 @@ function MeasurementForm({
         </Select>
       </div>
 
-      {/* Dynamic Measurement Fields */}
+      {/* Dynamic Measurement Fields + Garment Visualizer */}
       {template && (
-        <div className="space-y-3 rounded-lg border p-3.5 bg-muted/30">
-          <div className="flex items-center justify-between border-b pb-2">
-            <span className="text-sm font-bold flex items-center gap-1.5">
-              <span>{template.emoji}</span>
-              <span>{template.label} — Measurement Specs</span>
-            </span>
-            <span className="text-[11px] text-muted-foreground font-mono">(in inches ")</span>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3 rounded-lg border p-3.5 bg-muted/30">
+            <div className="flex items-center justify-between border-b pb-2">
+              <span className="text-sm font-bold flex items-center gap-1.5">
+                <span>{template.emoji}</span>
+                <span>{template.label} — Measurement Specs</span>
+              </span>
+              <span className="text-[11px] text-muted-foreground font-mono">(in inches ")</span>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            {template.fields.map((field) => (
-              <div key={field.key} className="space-y-1">
-                <Label className="text-xs text-muted-foreground">{field.label}</Label>
-                <Input
-                  placeholder='e.g. 36"'
-                  value={form[field.key] ?? ""}
-                  onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                  className="bg-background h-9 text-sm"
-                />
-              </div>
-            ))}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              {template.fields.map((field) => (
+                <div key={field.key} className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                  <Input
+                    placeholder='e.g. 36"'
+                    value={form[field.key] ?? ""}
+                    onFocus={() => setActiveField(field.key)}
+                    onBlur={() => setActiveField(null)}
+                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                    className="bg-background h-9 text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="rounded-lg min-h-[300px]">
+            <GarmentVisualizer garmentType={form.garment_type} activeField={activeField} fieldValues={form} />
           </div>
         </div>
       )}
