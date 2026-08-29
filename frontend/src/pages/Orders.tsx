@@ -135,36 +135,54 @@ export default function Orders() {
   // ===================================================
 
   const createMutation = useMutation({
-
     mutationFn: addOrder,
+    onMutate: async (newOrderData: any) => {
+      await queryClient.cancelQueries({ queryKey: ["orders"] });
+      const previousOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
+      const customerList = queryClient.getQueryData<any[]>(["customers"]) || [];
+      const targetCustomer = customerList.find((c: any) => Number(c.id) === Number(newOrderData.customer_id));
+      const prefix = targetCustomer?.name ? targetCustomer.name.trim().toUpperCase().replace(/\s+/g, "") : "CUSTOMER";
+      const custSeq = previousOrders.filter((o: any) => Number(o.customer_id) === Number(newOrderData.customer_id)).length + 1;
 
-    onSuccess: () => {
-
-      queryClient.invalidateQueries({
-        queryKey: ["orders"],
-      });
-
+      const optimisticOrder = {
+        id: Date.now(),
+        order_code: `${prefix}-${String(custSeq).padStart(3, "0")}`,
+        ...newOrderData,
+      };
+      queryClient.setQueryData(["orders"], [optimisticOrder, ...previousOrders]);
+      return { previousOrders };
     },
-
+    onError: (err, _newOrder, context) => {
+      if (context?.previousOrders) {
+        queryClient.setQueryData(["orders"], context.previousOrders);
+      }
+      setError((err as any)?.message || "Failed to create order.");
+      setOpen(true);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
   });
 
-
-  // ===================================================
-  // DELETE ORDER
-  // ===================================================
-
   const deleteMutation = useMutation({
-
     mutationFn: deleteOrder,
-
-    onSuccess: () => {
-
-      queryClient.invalidateQueries({
-        queryKey: ["orders"],
-      });
-
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["orders"] });
+      const previousOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
+      queryClient.setQueryData(
+        ["orders"],
+        previousOrders.filter((o) => o.id !== id)
+      );
+      return { previousOrders };
     },
-
+    onError: (_err, _id, context) => {
+      if (context?.previousOrders) {
+        queryClient.setQueryData(["orders"], context.previousOrders);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
   });
 
 
@@ -350,33 +368,12 @@ export default function Orders() {
 
 
     try {
-
-      await createMutation.mutateAsync(
-        orderData
-      );
-
-
-      // Close dialog
       setOpen(false);
-
-
-      // Reset form
-      setForm({
-        ...emptyForm,
-      });
-
-
+      setForm({ ...emptyForm });
+      createMutation.mutate(orderData);
     } catch (err) {
-
-      console.error(
-        "Create order error:",
-        err
-      );
-
-      setError(
-        "Failed to create order. Please check your details."
-      );
-
+      console.error("Create order error:", err);
+      setError("Failed to create order. Please check your details.");
     }
 
   };

@@ -8,6 +8,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TrialWarningBanner from "./TrialWarningBanner";
+import ExpiredAccountScreen from "./ExpiredAccountScreen";
+
+interface SubStatus {
+  status: string;
+  is_allowed: boolean;
+  allowed_message: string;
+  client_count: number;
+}
 
 /* ── Navigation config ──────────────────────────────────────────────── */
 const NAV_GROUPS = [
@@ -108,19 +116,40 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [dark, setDark] = useState(() => {
-    // Persist dark mode preference in localStorage so it survives page refresh
     const saved = localStorage.getItem("darkMode");
     if (saved !== null) return saved === "true";
     return document.documentElement.classList.contains("dark");
   });
+  const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("darkMode", String(dark));
   }, [dark]);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+        const res = await fetch(`${backendUrl}/api/subscriptions/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSubStatus(data);
+        }
+      } catch (err) {
+        console.error("Error checking subscription status:", err);
+      }
+    };
+    fetchStatus();
+  }, [location.pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -298,7 +327,15 @@ export default function AppLayout({
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
           <div className="p-4 lg:p-6 max-w-7xl mx-auto w-full">
-            {children}
+            {subStatus && !subStatus.is_allowed && location.pathname !== "/subscription" ? (
+              <ExpiredAccountScreen
+                status={subStatus.status}
+                message={subStatus.allowed_message}
+                clientCount={subStatus.client_count}
+              />
+            ) : (
+              children
+            )}
           </div>
         </main>
       </div>

@@ -6,6 +6,12 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 interface Plan {
   id: string;
   name: string;
@@ -30,8 +36,23 @@ interface SubscriptionStatus {
   client_limit: number;
   phone_verified: boolean;
   is_admin: boolean;
+  razorpay_key_id?: string;
   plans: Plan[];
 }
+
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 export default function Subscription() {
   const [data, setData] = useState<SubscriptionStatus | null>(null);
@@ -73,7 +94,9 @@ export default function Subscription() {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
-      const res = await fetch(`${backendUrl}/api/subscriptions/subscribe`, {
+
+      // Step 1: Create Razorpay Subscription on Backend
+      const createRes = await fetch(`${backendUrl}/api/subscriptions/create-subscription`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -82,16 +105,108 @@ export default function Subscription() {
         body: JSON.stringify({ plan: planId }),
       });
 
-      const result = await res.json();
-      if (res.ok) {
-        setMessage({ text: result.message || "Subscription activated!", type: "success" });
-        await fetchSubscription();
-      } else {
-        setMessage({ text: result.detail || "Failed to process subscription.", type: "error" });
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        setMessage({ text: createData.detail || "Failed to initiate subscription.", type: "error" });
+        setSubmittingPlan(null);
+        return;
       }
+
+      const { subscription_id, key_id, is_mock } = createData;
+
+      // Local mock testing mode fallback if Razorpay live credentials are not set
+      if (is_mock) {
+        const verifyRes = await fetch(`${backendUrl}/api/subscriptions/verify-payment`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            razorpay_payment_id: "pay_mock_" + Date.now(),
+            razorpay_subscription_id: subscription_id,
+            razorpay_signature: "mock_signature",
+            plan: planId,
+          }),
+        });
+
+        const verifyData = await verifyRes.json();
+        if (verifyRes.ok) {
+          setMessage({ text: verifyData.message || "Subscription activated successfully!", type: "success" });
+          await fetchSubscription();
+        } else {
+          setMessage({ text: verifyData.detail || "Payment verification failed.", type: "error" });
+        }
+        setSubmittingPlan(null);
+        return;
+      }
+
+      // Step 2: Load Razorpay SDK
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        setMessage({ text: "Unable to load Razorpay SDK. Check your internet connection.", type: "error" });
+        setSubmittingPlan(null);
+        return;
+      }
+
+      // Step 3: Open Razorpay Checkout Modal
+      const planTitle = planId === "TAILORPRO_YEARLY" ? "TailorPro Yearly" : "TailorPro Monthly";
+      const options = {
+        key: key_id || data?.razorpay_key_id,
+        subscription_id: subscription_id,
+        name: "TailorPro",
+        description: `${planTitle} Subscription`,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch(`${backendUrl}/api/subscriptions/verify-payment`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id,
+                razorpay_signature: response.razorpay_signature,
+                plan: planId,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok) {
+              setMessage({ text: verifyData.message || "Subscription activated successfully!", type: "success" });
+              await fetchSubscription();
+            } else {
+              setMessage({ text: verifyData.detail || "Payment signature verification failed.", type: "error" });
+            }
+          } catch (err) {
+            setMessage({ text: "Network error during signature verification.", type: "error" });
+          } finally {
+            setSubmittingPlan(null);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setMessage({ text: "Payment checkout cancelled.", type: "error" });
+            setSubmittingPlan(null);
+          },
+        },
+        theme: {
+          color: "#0f172a",
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        setMessage({
+          text: `Payment failed: ${response.error?.description || "Transaction failed"}`,
+          type: "error",
+        });
+        setSubmittingPlan(null);
+      });
+      rzp.open();
     } catch (err) {
-      setMessage({ text: "Network error occurred.", type: "error" });
-    } finally {
+      setMessage({ text: "Network error occurred during payment setup.", type: "error" });
       setSubmittingPlan(null);
     }
   };
@@ -184,13 +299,63 @@ export default function Subscription() {
         </div>
       )}
 
-      {/* Account Entitlement Summary Card */}
+      {/* Expired Account Alert Banner */}
+      {data && (!data.is_allowed || data.status === "TRIAL_EXPIRED" || data.status === "PAYMENT_FAILED") && (
+        <div className="p-5 rounded-2xl bg-red-500/10 border-2 border-red-500/30 text-red-900 dark:text-red-200 flex items-start gap-4 shadow-sm">
+          <AlertCircle className="h-6 w-6 text-red-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h3 className="font-bold text-base text-red-700 dark:text-red-300">
+              {data.status === "PAYMENT_FAILED" ? "Subscription Payment Required" : "Free Trial Has Expired"}
+            </h3>
+            <p className="text-sm text-red-800 dark:text-red-300">
+              {data.allowed_message || "Choose a plan below to immediately reactivate full access to your studio records, invoices, and customer management."}
+            </p>
+            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
+              <CheckCircle2 className="h-4 w-4" /> All {data.client_count} customer records & orders are 100% safe.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Trial Countdown Card */}
+      {data && data.status === "TRIAL" && (
+        <div className="bg-card border border-sky-500/30 rounded-2xl p-5 shadow-sm bg-gradient-to-r from-sky-500/5 to-transparent">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-sky-500" />
+                <h3 className="font-bold text-foreground">Free Trial Countdown</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30">
+                  {data.remaining_trial_days} {data.remaining_trial_days === 1 ? "day" : "days"} remaining
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Started {formatDate(data.trial_started_at)} • Ends on <strong className="text-foreground">{formatDate(data.trial_ends_at)}</strong>
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs text-muted-foreground">Client Records Quota</span>
+              <p className="text-sm font-bold text-foreground font-mono">
+                {data.client_count} / {data.client_limit} clients
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 w-full bg-muted rounded-full h-2 overflow-hidden">
+            <div
+              className="bg-sky-500 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${Math.max(5, Math.min(100, ((30 - data.remaining_trial_days) / 30) * 100))}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Account Entitlement & Current Plan Summary Card */}
       {data && (
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-foreground">Current Account Entitlement</h2>
+                <h2 className="text-xl font-bold text-foreground">Current Plan & Access Status</h2>
                 <span
                   className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${getStatusBadgeClass(
                     data.status
@@ -204,12 +369,9 @@ export default function Subscription() {
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Client Records Quota</p>
-                <p className="text-lg font-bold text-foreground">
-                  {data.client_count}{" "}
-                  <span className="text-xs text-muted-foreground font-normal">
-                    / {data.client_limit > 0 ? `${data.client_limit} max` : "Unlimited"}
-                  </span>
+                <p className="text-xs text-muted-foreground">Payment Status</p>
+                <p className={`text-sm font-bold ${data.is_allowed ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                  {data.is_allowed ? "Active & Authorized" : "Payment Action Required"}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
@@ -218,39 +380,47 @@ export default function Subscription() {
             </div>
           </div>
 
-          {/* Details Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5">
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-muted/40 border">
-              <Calendar className="h-5 w-5 text-muted-foreground shrink-0" />
+          {/* Details Row: Current Plan, Renewal Date, Quota */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/40 border">
+              <Calendar className="h-5 w-5 text-primary shrink-0" />
               <div>
-                <p className="text-xs text-muted-foreground">Trial Started</p>
-                <p className="text-sm font-semibold text-foreground">{formatDate(data.trial_started_at)}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-muted/40 border">
-              <Clock className="h-5 w-5 text-amber-500 shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">Trial Ends</p>
+                <p className="text-xs text-muted-foreground">Current Plan</p>
                 <p className="text-sm font-semibold text-foreground">
-                  {formatDate(data.trial_ends_at)}{" "}
-                  {data.status === "TRIAL" && (
-                    <span className="text-xs text-amber-600 font-normal">
-                      ({data.remaining_trial_days} days left)
-                    </span>
-                  )}
+                  {data.status === "ACTIVE_MONTHLY"
+                    ? "TailorPro Monthly (₹1,500/mo)"
+                    : data.status === "ACTIVE_YEARLY"
+                    ? "TailorPro Yearly (₹15,000/yr)"
+                    : data.status === "TRIAL"
+                    ? "30-Day Free Trial"
+                    : "Plan Expired"}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-muted/40 border">
-              <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0" />
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/40 border">
+              <Clock className="h-5 w-5 text-amber-500 shrink-0" />
               <div>
-                <p className="text-xs text-muted-foreground">Active Subscription</p>
+                <p className="text-xs text-muted-foreground">Renewal / Expiration Date</p>
                 <p className="text-sm font-semibold text-foreground">
                   {data.subscription_ends_at
-                    ? `Valid until ${formatDate(data.subscription_ends_at)}`
-                    : "No active plan"}
+                    ? formatDate(data.subscription_ends_at)
+                    : data.trial_ends_at
+                    ? formatDate(data.trial_ends_at)
+                    : "No active renewal"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/40 border">
+              <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Client Records Quota</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {data.client_count}{" "}
+                  <span className="text-xs text-muted-foreground font-normal">
+                    / {data.client_limit > 0 ? `${data.client_limit} max` : "Unlimited"}
+                  </span>
                 </p>
               </div>
             </div>
@@ -258,7 +428,7 @@ export default function Subscription() {
 
           {/* 10 Client Limit Warning Callout for Trial */}
           {data.status === "TRIAL" && data.client_count >= 10 && (
-            <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-sm flex items-start gap-3">
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-sm flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">You've reached the 10-client limit for your free trial.</p>
