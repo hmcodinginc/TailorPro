@@ -54,6 +54,9 @@ import {
 import { generateMeasurementPDF } from "@/lib/measurementPdf"
 import { motion } from "framer-motion"
 import { GarmentVisualizer } from "@/components/GarmentVisualizer"
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 type FormValues = Record<string, string>
 const emptyBase: FormValues = { customer_id: "", gender: "Men", garment_type: "", notes: "" }
@@ -289,6 +292,9 @@ export default function Measurements() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingMeasurement, setDeletingMeasurement] = useState<any>(null)
 
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewData, setPreviewData] = useState<{ m: any, customer: any, isDownloading?: boolean } | null>(null)
+
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: getCustomers })
   const { data: measurements = [] } = useQuery({ queryKey: ["measurements"], queryFn: getMeasurements })
 
@@ -334,10 +340,8 @@ export default function Measurements() {
   }
 
   const handleDownloadPDF = (m: any, customer: any) => {
-    generateMeasurementPDF({
-      measurement: m,
-      customer: customer,
-    })
+    setPreviewData({ m, customer })
+    setPreviewOpen(true)
   }
 
   // Filtering
@@ -357,6 +361,7 @@ export default function Measurements() {
   })
 
   return (
+    <ErrorBoundary>
     <motion.div
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
@@ -654,6 +659,161 @@ export default function Measurements() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Preview Dialog */}
+      <Dialog
+        open={previewOpen}
+        onOpenChange={(open) => { if (!open) setPreviewOpen(false); }}
+      >
+        <DialogContent className="max-w-[900px] max-h-[90vh] overflow-y-auto print:max-w-none print:w-full print:p-0 print:m-0 print:border-none print:shadow-none bg-gray-50 border-gray-200">
+          <DialogHeader className="print:hidden flex flex-row justify-between items-center w-full sticky top-0 bg-gray-50 z-10 pb-2">
+            <DialogTitle>Measurement Preview</DialogTitle>
+          </DialogHeader>
+
+          {previewData && (
+            <>
+            <div id="printable-measurement" className="bg-white p-8 space-y-6 shadow-sm border rounded-lg text-slate-800">
+              
+              {/* Header */}
+              <div className="flex justify-between items-start border-b pb-4">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900">TailorPro Boutique</h1>
+                  <p className="text-sm text-slate-500 uppercase font-semibold tracking-wider mt-1">Garment Measurement Spec Sheet</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium">Ref ID: #{previewData.m.id || "000"}</p>
+                  <p className="text-xs text-slate-500">Date: {new Date(previewData.m.created_at || new Date()).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {/* Customer details */}
+              <div className="bg-slate-50 p-4 rounded-md border border-slate-100 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold uppercase">Customer Name</p>
+                  <p className="font-medium text-slate-900">{previewData.customer?.name || "N/A"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold uppercase">Contact</p>
+                  <p className="font-medium text-slate-900">{previewData.customer?.phone || "N/A"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold uppercase">Garment Type</p>
+                  <p className="font-medium text-slate-900">{previewData.m.garment_type}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold uppercase">Gender</p>
+                  <p className="font-medium text-slate-900">{previewData.m.gender || "Men"}</p>
+                </div>
+              </div>
+
+              {/* Visualizer & Fields Grid */}
+              <div className="grid grid-cols-2 gap-8 items-start">
+                
+                {/* Visualizer */}
+                <div className="bg-slate-50 border rounded-lg p-4 min-h-[400px] flex items-center justify-center">
+                  <GarmentVisualizer 
+                    garmentType={previewData.m.garment_type} 
+                    activeField={null} 
+                    fieldValues={previewData.m} 
+                  />
+                </div>
+
+                {/* Fields Table */}
+                <div className="space-y-4">
+                  <h3 className="font-bold text-slate-900 border-b pb-2">Measurement Values (inches)</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    {(() => {
+                      const template = findGarmentTemplate(previewData.m.garment_type, previewData.m.gender || "Men");
+                      const fieldsToRender = template?.fields || [];
+                      
+                      if (fieldsToRender.length === 0) {
+                        return <p className="text-sm text-slate-500 italic col-span-2">No template fields available.</p>;
+                      }
+
+                      return fieldsToRender.map(field => {
+                        const val = previewData.m[field.key];
+                        if (val === undefined || val === null || val === "") return null;
+                        
+                        return (
+                          <div key={field.key} className="flex justify-between items-end border-b border-dashed border-slate-200 pb-1">
+                            <span className="text-xs text-slate-600 font-medium">{field.label}</span>
+                            <span className="text-sm font-bold text-slate-900">{val}"</span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                  
+                  {previewData.m.notes && (
+                    <div className="mt-6 pt-4 border-t">
+                      <h4 className="text-xs font-bold text-slate-900 uppercase mb-1">Notes & Instructions</h4>
+                      <p className="text-sm text-slate-700 bg-amber-50 p-3 rounded border border-amber-100">{previewData.m.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-8 flex justify-between items-end">
+                <div className="border-t border-slate-300 pt-2 w-48 text-center text-xs text-slate-500">
+                  Customer Signature
+                </div>
+                <div className="border-t border-slate-300 pt-2 w-48 text-center text-xs text-slate-500">
+                  Tailor Signature
+                </div>
+              </div>
+
+            </div>
+            
+            {/* Sticky Bottom Action Bar */}
+            <div className="sticky bottom-0 left-0 right-0 p-4 bg-white border-t flex justify-end gap-3 rounded-b-lg shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
+              <Button 
+                variant="outline" 
+                onClick={() => setPreviewOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md"
+                disabled={previewData?.isDownloading}
+                onClick={async () => {
+                  try {
+                    setPreviewData(prev => prev ? { ...prev, isDownloading: true } : prev);
+                    const element = document.getElementById('printable-measurement');
+                    if (!element) throw new Error("Preview element not found");
+                    
+                    const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                    
+                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    
+                    const customerName = previewData?.customer?.name?.replace(/[^a-zA-Z0-9]/g, "_") || "Customer";
+                    const garmentName = previewData?.m?.garment_type?.replace(/[^a-zA-Z0-9]/g, "_") || "Garment";
+                    pdf.save(`${customerName}_${garmentName}_Measurements.pdf`);
+                  } catch (error) {
+                    console.error("PDF Generation failed", error);
+                    alert("Failed to generate PDF. Please try again.");
+                  } finally {
+                    setPreviewData(prev => prev ? { ...prev, isDownloading: false } : prev);
+                  }
+                }}
+              >
+                {previewData?.isDownloading ? (
+                  <span className="animate-pulse">Generating PDF...</span>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5 mr-2" /> Download PDF Now
+                  </>
+                )}
+              </Button>
+            </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div>
+    </ErrorBoundary>
   )
 }

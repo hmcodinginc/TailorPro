@@ -5,7 +5,7 @@ import random
 
 from ..database import get_db
 from .. import models, schemas
-from ..core.dependencies import get_current_user, get_current_business
+from ..core.dependencies import get_current_user, get_current_business, get_business_unrestricted
 from ..core.entitlements import (
     get_business_entitlement_status,
     is_account_allowed,
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
 @router.get("/status")
 def get_subscription_status(
     current_user: models.User = Depends(get_current_user),
-    business: models.Business = Depends(get_current_business),
+    business: models.Business = Depends(get_business_unrestricted),
     db: Session = Depends(get_db)
 ):
     effective_status = get_business_entitlement_status(business)
@@ -122,7 +122,7 @@ def verify_otp(
 @router.post("/subscribe")
 def subscribe(
     data: schemas.SubscribeRequest,
-    business: models.Business = Depends(get_current_business),
+    business: models.Business = Depends(get_business_unrestricted),
     db: Session = Depends(get_db)
 ):
     plan = data.plan.upper().strip()

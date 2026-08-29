@@ -13,12 +13,14 @@ from .routers import auth
 from .routers import invoices
 from .routers import business
 from .routers import subscriptions
+from .routers import admin
 
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path=env_path, override=True)
 
 # STEP 1: Create app FIRST
 app = FastAPI()
+
 
 # STEP 2: Mount uploads folder
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
@@ -55,6 +57,7 @@ app.include_router(invoices.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(business.router, prefix="/api")
 app.include_router(subscriptions.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 # Home route
 @app.get("/")

@@ -20,12 +20,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  getInvoices, addInvoice, updateInvoice, deleteInvoice,
-  getCustomers, getOrders, getBusinessProfile,
-} from "@/lib/api";
+import { getInvoices, addInvoice, updateInvoice, deleteInvoice, getCustomers, getOrders, getBusinessProfile } from "@/lib/api";
 import { format } from "date-fns";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
+
 type Customer = any
 type Order = any
 
@@ -43,6 +43,7 @@ interface Invoice {
   payment_type: PaymentType;
   notes?:       string;
   created_at:   string;
+  isDownloading?: boolean;
 }
 
 interface IForm {
@@ -594,32 +595,9 @@ export default function Invoices() {
         open={!!previewInvoice}
         onOpenChange={(open) => { if (!open) setPreviewInvoice(null); }}
       >
-        <DialogContent className="max-w-[800px] print:max-w-none print:w-full print:p-0 print:m-0 print:border-none print:shadow-none bg-gray-50 border-gray-200">
-          <DialogHeader className="print:hidden flex flex-row justify-between items-center w-full">
+        <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto print:max-w-none print:w-full print:p-0 print:m-0 print:border-none print:shadow-none bg-gray-50 border-gray-200">
+          <DialogHeader className="print:hidden flex flex-row justify-between items-center w-full sticky top-0 bg-gray-50 z-10 pb-2">
             <DialogTitle>Invoice Preview</DialogTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => {
-                const element = document.getElementById('printable-invoice');
-                if (!element) return;
-                import('html2canvas').then((html2canvas) => {
-                  html2canvas.default(element, { scale: 2 }).then((canvas) => {
-                    const imgData = canvas.toDataURL('image/png');
-                    import('jspdf').then((jsPDF) => {
-                      const pdf = new jsPDF.default('p', 'mm', 'a4');
-                      const pdfWidth = pdf.internal.pageSize.getWidth();
-                      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                      pdf.save(`Invoice_INV-${previewInvoice?.id.toString().padStart(4, '0')}.pdf`);
-                    });
-                  });
-                });
-              }}>
-                <Download className="w-4 h-4 mr-2" /> Download PDF
-              </Button>
-              <Button size="sm" onClick={() => window.print()} className="gap-2">
-                <Printer className="w-4 h-4 mr-2" /> Print Invoice
-              </Button>
-            </div>
           </DialogHeader>
           
           <div className="overflow-auto max-h-[80vh] flex justify-center print:overflow-visible">
@@ -750,6 +728,56 @@ export default function Invoices() {
               </div>
             );
           })()}
+          </div>
+          
+          {/* Sticky Bottom Action Bar */}
+          <div className="sticky bottom-0 left-0 right-0 p-4 bg-white border-t flex justify-end gap-3 rounded-b-lg shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
+            <Button 
+              variant="outline" 
+              onClick={() => setPreviewInvoice(null)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="outline"
+              className="gap-2"
+              onClick={() => window.print()}
+            >
+              <Printer className="w-4 h-4" /> Print
+            </Button>
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md"
+              disabled={previewInvoice?.isDownloading}
+              onClick={async () => {
+                try {
+                  setPreviewInvoice(prev => prev ? { ...prev, isDownloading: true } : prev);
+                  const element = document.getElementById('printable-invoice');
+                  if (!element) throw new Error("Preview element not found");
+                  
+                  const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+                  const imgData = canvas.toDataURL('image/png');
+                  const pdf = new jsPDF('p', 'mm', 'a4');
+                  const pdfWidth = pdf.internal.pageSize.getWidth();
+                  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                  
+                  pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                  pdf.save(`Invoice_INV-${previewInvoice?.id.toString().padStart(4, '0')}.pdf`);
+                } catch (error) {
+                  console.error("PDF Generation failed", error);
+                  alert("Failed to generate invoice PDF. Please try again.");
+                } finally {
+                  setPreviewInvoice(prev => prev ? { ...prev, isDownloading: false } : prev);
+                }
+              }}
+            >
+              {previewInvoice?.isDownloading ? (
+                <span className="animate-pulse">Generating PDF...</span>
+              ) : (
+                <>
+                  <Download className="w-5 h-5 mr-2" /> Download PDF Now
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

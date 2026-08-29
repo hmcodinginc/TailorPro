@@ -48,6 +48,7 @@ class User(Base):
     email_verified = Column(Boolean, default=False)
     phone_verified = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
+    is_superadmin = Column(Boolean, default=False)
     
     business = relationship("Business", back_populates="users")
 
@@ -149,3 +150,21 @@ class Invoice(Base):
 
     customer = relationship("Customer")
     order    = relationship("Order")
+
+class InquiryStatus(str, enum.Enum):
+    NEW = "NEW"
+    IN_PROGRESS = "IN_PROGRESS"
+    RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
+
+class Inquiry(Base):
+    __tablename__ = "inquiries"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    phone = Column(String, nullable=True)
+    business_name = Column(String, nullable=True)
+    subject = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    status = Column(SAEnum(InquiryStatus), default=InquiryStatus.NEW, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

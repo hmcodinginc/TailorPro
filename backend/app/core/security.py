@@ -10,8 +10,8 @@ load_dotenv()
 SECRET_KEY = os.getenv("JWT_SECRET_KEY") or "tailorpro_default_jwt_secret_key_dev_mode_2026"
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 15 # Short lived access token
-REFRESH_TOKEN_EXPIRE_DAYS = 7    # Long lived refresh token
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440 # Extended to 1 day for better UX since frontend has no refresh logic
+REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256", "bcrypt"], deprecated="auto")
 
