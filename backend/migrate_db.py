@@ -1,49 +1,46 @@
-import sqlite3
+import os
+from sqlalchemy import text
+from app.database import engine, Base
+from app import models
 
 def migrate():
-    conn = sqlite3.connect('tms.db')
-    cursor = conn.cursor()
-
-    # Create businesses table
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS businesses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name VARCHAR
-    )
-    ''')
-
-    # Insert a default legacy business if not exists
-    cursor.execute('SELECT id FROM businesses WHERE id = 1')
-    if not cursor.fetchone():
-        cursor.execute("INSERT INTO businesses (name) VALUES ('Legacy Business')")
+    # Automatically create missing tables (e.g. inquiries)
+    Base.metadata.create_all(bind=engine)
+    print("Base.metadata.create_all completed.")
     
-    # Add columns to users
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN name VARCHAR")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN phone VARCHAR")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN business_id INTEGER REFERENCES businesses(id)")
-    except sqlite3.OperationalError:
-        pass
+    with engine.connect() as conn:
+        # Create default legacy business
+        res = conn.execute(text("SELECT id FROM businesses WHERE id = 1")).fetchone()
+        if not res:
+            conn.execute(text("INSERT INTO businesses (name) VALUES ('Legacy Business')"))
+            conn.commit()
+            
+        # Helper to safely add column
+        def add_column_safe(table, column_def):
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column_def}"))
+                conn.commit()
+                print(f"Added column {column_def} to {table}")
+            except Exception as e:
+                # Column likely already exists
+                conn.rollback()
+                pass
+
+        # PostgreSQL uses BOOLEAN, SQLite supports it via integer mapping
+        add_column_safe("users", "name VARCHAR")
+        add_column_safe("users", "phone VARCHAR")
+        add_column_safe("users", "business_id INTEGER REFERENCES businesses(id)")
+        add_column_safe("users", "is_superadmin BOOLEAN DEFAULT FALSE")
         
-    cursor.execute("UPDATE users SET business_id = 1 WHERE business_id IS NULL")
+        conn.execute(text("UPDATE users SET business_id = 1 WHERE business_id IS NULL"))
+        conn.commit()
 
-    # Add business_id to other tables
-    tables = ["customers", "measurements", "orders", "invoices"]
-    for table in tables:
-        try:
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN business_id INTEGER REFERENCES businesses(id)")
-        except sqlite3.OperationalError:
-            pass
-        cursor.execute(f"UPDATE {table} SET business_id = 1 WHERE business_id IS NULL")
-
-    conn.commit()
-    conn.close()
+        tables = ["customers", "measurements", "orders", "invoices"]
+        for table in tables:
+            add_column_safe(table, "business_id INTEGER REFERENCES businesses(id)")
+            conn.execute(text(f"UPDATE {table} SET business_id = 1 WHERE business_id IS NULL"))
+            conn.commit()
+            
     print("Migration successful.")
 
 if __name__ == "__main__":

@@ -1,16 +1,15 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models import Customer, Order, Measurement, Business
-from ..core.dependencies import get_current_business
+from .. import database, models
+from ..core.dependencies import require_active_entitlement
 
-router = APIRouter(prefix="/dashboard")
+router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 @router.get("/stats")
-def stats(db: Session = Depends(get_db), current_business: Business = Depends(get_current_business)):
-    customers = db.query(Customer).filter(Customer.business_id == current_business.id).count()
-    orders = db.query(Order).filter(Order.business_id == current_business.id).count()
-    measurements = db.query(Measurement).filter(Measurement.business_id == current_business.id).count()
+def stats(db: Session = Depends(database.get_db), current_business: models.Business = Depends(require_active_entitlement)):
+    customers = db.query(models.Customer).filter(models.Customer.business_id == current_business.id).count()
+    orders = db.query(models.Order).filter(models.Order.business_id == current_business.id).count()
+    measurements = db.query(models.Measurement).filter(models.Measurement.business_id == current_business.id).count()
 
     return {
         "total_customers": customers,

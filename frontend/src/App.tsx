@@ -1,5 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom"
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
+import { useEffect } from "react"
 
 import Landing      from "./pages/Landing"
 import Dashboard    from "./pages/Dashboard"
@@ -14,6 +15,7 @@ import Reports      from "./pages/Reports"
 import Settings     from "./pages/Settings"
 import Subscription from "./pages/Subscription"
 import AppLayout    from "./components/AppLayout"
+import AdminDashboard from "./pages/AdminDashboard"
 
 /* ── Auth guards ────────────────────────────────────────────────────── */
 
@@ -32,12 +34,6 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 }
 
 /* ── Page transition wrapper ────────────────────────────────────────── */
-/**
- * Wrap each page in a motion.div that fades in/out.
- * Key insight: we use opacity-only (no layout shift) and keep the
- * background on <html>/<body> (in index.css) so the transition frame
- * never shows a transparent/black gap.
- */
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
@@ -55,6 +51,22 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 /* ── Route tree ─────────────────────────────────────────────────────── */
 function AnimatedRoutes() {
   const location = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Alt + T
+      if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault()
+        e.stopPropagation()
+        navigate('/admin')
+      }
+    }
+    
+    // Use { capture: true } to intercept the event as early as possible
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
+  }, [navigate])
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -65,14 +77,21 @@ function AnimatedRoutes() {
           <PageWrapper><Landing /></PageWrapper>
         } />
 
-        {/* Auth — redirect to dashboard if already logged in */}
+        {/* Auth */}
         <Route path="/auth" element={
           <GuestRoute>
             <PageWrapper><Auth /></PageWrapper>
           </GuestRoute>
         } />
 
-        {/* Protected — redirect to /auth if not logged in */}
+        {/* Super Admin */}
+        <Route path="/admin" element={
+          <ProtectedRoute>
+            <PageWrapper><AdminDashboard /></PageWrapper>
+          </ProtectedRoute>
+        } />
+
+        {/* Protected */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <AppLayout><Dashboard /></AppLayout>

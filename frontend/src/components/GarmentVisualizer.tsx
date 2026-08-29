@@ -60,7 +60,7 @@ export function GarmentVisualizer({ garmentType, activeField, fieldValues }: Gar
         {Object.entries(measurementMap).map(([fieldKey, line]) => {
           const value = fieldValues[fieldKey]
           const isActive = activeField === fieldKey
-          const hasValue = value !== undefined && value.trim() !== ""
+          const hasValue = value !== undefined && value !== null && String(value).trim() !== ""
 
           // Only show if active OR if it has a value
           if (!isActive && !hasValue) return null

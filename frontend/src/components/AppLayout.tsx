@@ -54,6 +54,29 @@ function SidebarNav({
   onClose?: () => void;
 }) {
   const location = useLocation();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    // Fetch user profile to check if superadmin
+    const checkAdmin = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const res = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.is_superadmin) {
+            setIsSuperAdmin(true);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    checkAdmin();
+  }, []);
 
   return (
     <nav className="flex-1 px-2 py-3 space-y-4 overflow-y-auto">
@@ -105,6 +128,28 @@ function SidebarNav({
           </div>
         </div>
       ))}
+
+      {isSuperAdmin && (
+        <div className="pt-4 border-t border-sidebar-border mt-4">
+          {!collapsed && (
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500 px-3 mb-1.5">
+              Super Admin
+            </p>
+          )}
+          <Link
+            to="/admin"
+            onClick={onClose}
+            title={collapsed ? "Admin Panel" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 font-semibold",
+              collapsed && "justify-center"
+            )}
+          >
+            <Settings className={cn("shrink-0 h-4 w-4", collapsed && "h-[18px] w-[18px]")} />
+            {!collapsed && <span>Admin Dashboard</span>}
+          </Link>
+        </div>
+      )}
     </nav>
   );
 }

@@ -123,6 +123,7 @@ class UserResponse(BaseModel):
     email: str
     name: Optional[str]
     business_id: Optional[int]
+    is_superadmin: bool = False
 
     class Config:
         from_attributes = True
@@ -172,5 +173,51 @@ class BusinessResponse(BaseModel):
     gst_number: Optional[str] = None
     logo_url: Optional[str] = None
 
+    class Config:
+        from_attributes = True
+
+# ADMIN & INQUIRY SCHEMAS
+from datetime import datetime
+
+class AdminBusinessResponse(BaseModel):
+    id: int
+    name: str
+    subscription_status: str
+    trial_started_at: Optional[datetime] = None
+    trial_ends_at: Optional[datetime] = None
+    subscription_ends_at: Optional[datetime] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class TrialExtendRequest(BaseModel):
+    days: int
+
+from pydantic import Field
+
+class InquiryCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    email: str = Field(..., min_length=5, max_length=150, pattern=r"^[\w\.-]+@[\w\.-]+\.\w+$")
+    phone: Optional[str] = Field(None, max_length=20)
+    business_name: Optional[str] = Field(None, max_length=150)
+    subject: str = Field(..., min_length=2, max_length=200)
+    message: str = Field(..., min_length=2, max_length=2000)
+
+class InquiryUpdate(BaseModel):
+    status: str
+
+class InquiryResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    phone: Optional[str] = None
+    business_name: Optional[str] = None
+    subject: str
+    message: str
+    status: str
+    created_at: datetime
+    
     class Config:
         from_attributes = True

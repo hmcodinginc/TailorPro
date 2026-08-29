@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models, schemas
-from ..core.dependencies import get_current_user, get_current_business
+from ..core.dependencies import get_current_user, get_current_business, get_business_unrestricted
 from ..core.entitlements import (
     get_business_entitlement_status,
     is_account_allowed,
@@ -66,7 +66,7 @@ def verify_razorpay_webhook_signature(body_bytes: bytes, signature: str, secret:
 @router.get("/status")
 def get_subscription_status(
     current_user: models.User = Depends(get_current_user),
-    business: models.Business = Depends(get_current_business),
+    business: models.Business = Depends(get_business_unrestricted),
     db: Session = Depends(get_db)
 ):
     effective_status = get_business_entitlement_status(business)
@@ -396,6 +396,32 @@ def verify_otp(
 
     return {"message": "Phone number successfully verified!"}
 
+@router.post("/subscribe")
+def subscribe(
+    data: schemas.SubscribeRequest,
+    business: models.Business = Depends(get_business_unrestricted),
+    db: Session = Depends(get_db)
+):
+    plan = data.plan.upper().strip()
+    now = datetime.utcnow()
+
+    if plan == "TAILORPRO_MONTHLY":
+        business.subscription_status = models.SubscriptionStatus.ACTIVE_MONTHLY
+        business.subscription_ends_at = now + timedelta(days=30)
+    elif plan == "TAILORPRO_YEARLY":
+        business.subscription_status = models.SubscriptionStatus.ACTIVE_YEARLY
+        business.subscription_ends_at = now + timedelta(days=365)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid plan selected. Choose TAILORPRO_MONTHLY or TAILORPRO_YEARLY.")
+
+    db.commit()
+    db.refresh(business)
+
+    return {
+        "message": f"Successfully subscribed to {plan}!",
+        "subscription_status": business.subscription_status.value,
+        "subscription_ends_at": business.subscription_ends_at.isoformat()
+    }
 
 @router.post("/admin/grant-trial")
 def admin_grant_trial(

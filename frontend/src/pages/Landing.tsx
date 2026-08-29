@@ -198,6 +198,7 @@ export default function Landing() {
     { href: "#features", label: "Features" },
     { href: "#pricing", label: "Pricing & Plans" },
     { href: "#customers", label: "Testimonials" },
+    { href: "#contact", label: "Contact Us" },
   ];
 
   return (
@@ -792,6 +793,84 @@ export default function Landing() {
               </div>
             </div>
           </FadeInWhenVisible>
+        </div>
+      </section>
+
+      {/* ── CONTACT FORM FOR INQUIRIES ───────────────────────────── */}
+      <section id="contact" className="py-24 px-4 sm:px-6 lg:px-8 bg-white border-t border-gray-100">
+        <div className="max-w-3xl mx-auto">
+          <FadeInWhenVisible className="text-center mb-12">
+            <span className="inline-block text-xs font-semibold text-sky-600 uppercase tracking-widest bg-sky-50 px-3.5 py-1 rounded-full mb-4 border border-sky-100">
+              Get in Touch
+            </span>
+            <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">
+              Have questions? Let's talk.
+            </h2>
+            <p className="text-lg text-gray-500">
+              Send us an inquiry and our team will get back to you shortly.
+            </p>
+          </FadeInWhenVisible>
+
+          <form 
+            className="bg-slate-50 p-8 rounded-3xl border border-gray-100 shadow-sm"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const data = {
+                name: (form.elements.namedItem('name') as HTMLInputElement).value,
+                email: (form.elements.namedItem('email') as HTMLInputElement).value,
+                subject: (form.elements.namedItem('subject') as HTMLInputElement).value,
+                message: (form.elements.namedItem('message') as HTMLTextAreaElement).value
+              };
+              try {
+                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+                const res = await fetch(`${backendUrl}/api/admin/inquiries/public`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                  alert('Thank you! Your inquiry has been sent successfully.');
+                  form.reset();
+                } else {
+                  const errData = await res.json().catch(() => null);
+                  let errMsg = 'Failed to send inquiry. Please try again later.';
+                  if (errData && errData.detail) {
+                    if (Array.isArray(errData.detail)) {
+                      errMsg = errData.detail.map((e: any) => `${e.loc[e.loc.length - 1]}: ${e.msg}`).join('\n');
+                    } else if (typeof errData.detail === 'string') {
+                      errMsg = errData.detail;
+                    }
+                  }
+                  alert(`Error:\n${errMsg}`);
+                }
+              } catch (err) {
+                alert('Network error. Please try again later.');
+              }
+            }}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                <input required name="name" type="text" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="John Doe" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input required name="email" type="email" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="john@example.com" />
+              </div>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+              <input required name="subject" type="text" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="How can we help?" />
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+              <textarea required name="message" rows={4} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="Tell us more about your needs..."></textarea>
+            </div>
+            <Button type="submit" className="w-full h-12 text-base gradient-brand text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all">
+              Send Inquiry
+            </Button>
+          </form>
         </div>
       </section>
 
