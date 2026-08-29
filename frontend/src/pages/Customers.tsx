@@ -48,8 +48,55 @@ export default function Customers() {
   const qc = useQueryClient();
   const { data: customersData = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: getCustomers });
   const customers = customersData as Customer[];
-  const createMut = useMutation({ mutationFn: addCustomer, onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }) });
-  const deleteMut = useMutation({ mutationFn: deleteCustomer, onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }) });
+  const createMut = useMutation({
+    mutationFn: addCustomer,
+    onMutate: async (newCust) => {
+      await qc.cancelQueries({ queryKey: ["customers"] });
+      const previous = qc.getQueryData<Customer[]>(["customers"]) || [];
+      const optimisticCust: Customer = {
+        id: Date.now(),
+        name: newCust.name,
+        phone: newCust.phone,
+        email: newCust.email || "",
+        address: newCust.address || "",
+      };
+      qc.setQueryData(["customers"], [optimisticCust, ...previous]);
+      return { previous };
+    },
+    onError: (err, _newCust, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["customers"], context.previous);
+      }
+      const msg = (err as any)?.message || "";
+      if (msg.includes("limit") || msg.includes("10-client")) {
+        setLimitModalOpen(true);
+      } else {
+        setError(msg || "Failed to add customer.");
+        setOpen(true);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: deleteCustomer,
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["customers"] });
+      const previous = qc.getQueryData<Customer[]>(["customers"]) || [];
+      qc.setQueryData(["customers"], previous.filter((c) => c.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["customers"], context.previous);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -62,22 +109,22 @@ export default function Customers() {
     c.email?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    try {
-      await createMut.mutateAsync(form);
-      setOpen(false);
-      setForm(emptyForm);
-    } catch (err: Error | unknown) {
-      // Better error message
-      setError((err as Error).message || "Failed to add customer. Please ensure all required fields are filled.");
+    if (!form.name.trim() || !form.phone.trim()) {
+      setError("Name and Phone number are required.");
+      return;
     }
+    setError("");
+    const newForm = { ...form };
+    setOpen(false);
+    setForm(emptyForm);
+    createMut.mutate(newForm);
   };
 
-  const handleDelete = async (id: number, name: string) => {
+  const handleDelete = (id: number, name: string) => {
     if (!window.confirm(`Remove ${name}?`)) return;
-    await deleteMut.mutateAsync(id);
+    deleteMut.mutate(id);
   };
 
   return (

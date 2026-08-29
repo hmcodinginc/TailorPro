@@ -294,30 +294,47 @@ export default function Measurements() {
 
   const addMutation = useMutation({
     mutationFn: addMeasurement,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["measurements"] })
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["measurements"] })
       setAddOpen(false)
       setAddFile(null)
       setAddForm(emptyBase)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["measurements"] })
     },
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, fd }: { id: number; fd: FormData }) => updateMeasurement(id, fd),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["measurements"] })
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["measurements"] })
       setEditOpen(false)
       setEditingId(null)
       setEditFile(null)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["measurements"] })
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteMeasurement(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["measurements"] })
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["measurements"] })
+      const previous = queryClient.getQueryData<any[]>(["measurements"]) || []
+      queryClient.setQueryData(["measurements"], previous.filter((m) => m.id !== id))
       setDeleteOpen(false)
       setDeletingMeasurement(null)
+      return { previous }
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["measurements"], context.previous)
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["measurements"] })
     },
   })
 
