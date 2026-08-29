@@ -62,7 +62,7 @@ def require_active_entitlement(business: Business = Depends(get_current_business
             detail={
                 "message": reason,
                 "code": "ENTITLEMENT_RESTRICTED",
-                "status": effective_status.value
+                "status": effective_status.value if hasattr(effective_status, "value") else str(effective_status)
             }
         )
     return business

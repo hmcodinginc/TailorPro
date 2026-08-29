@@ -31,6 +31,8 @@ elif DATABASE_URL.startswith("postgres://"):
         1
     )
 
+from sqlalchemy import event
+
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
         DATABASE_URL,
@@ -38,6 +40,12 @@ if DATABASE_URL.startswith("sqlite"):
             "check_same_thread": False
         }
     )
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 else:
     engine = create_engine(
         DATABASE_URL,

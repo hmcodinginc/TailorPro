@@ -12,7 +12,7 @@ A site  with FastAPI backend and React frontend for managing tailor shop: custom
 ### Backend
 ```bash
 cd backend
-pip install -r requirement.txt
+pip install -r requirements.txt
 # Set DATABASE_URL in .env (SQLAlchemy)
 uvicorn app.main:app --reload --port 8000
 ```

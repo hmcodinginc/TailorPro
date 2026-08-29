@@ -137,6 +137,9 @@ function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogPro
         ? updateInvoice(invoice!.id, payload)
         : addInvoice(payload);
     },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["invoices"] });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast({ title: editing ? "Invoice updated" : "Invoice created" });
@@ -320,12 +323,22 @@ export default function Invoices() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteInvoice(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["invoices"] });
+      const previous = queryClient.getQueryData<any[]>(["invoices"]) || [];
+      queryClient.setQueryData(["invoices"], previous.filter((inv) => inv.id !== id));
       toast({ title: "Invoice deleted" });
+      return { previous };
     },
-    onError: (err: Error) =>
-      toast({ title: "Error", description: err.message, variant: "destructive" }),
+    onError: (err: Error, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["invoices"], context.previous);
+      }
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+    },
   });
 
   // ── Helpers ───────────────────────────────────────────────────────────────

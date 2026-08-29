@@ -39,6 +39,15 @@ class VerifyOTPRequest(BaseModel):
 class SubscribeRequest(BaseModel):
     plan: str
 
+class CreateSubscriptionRequest(BaseModel):
+    plan: str
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_payment_id: str
+    razorpay_subscription_id: str
+    razorpay_signature: str
+    plan: str
+
 class GrantTrialRequest(BaseModel):
     business_id: int
     days: int

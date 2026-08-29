@@ -7,9 +7,30 @@ from ..core.dependencies import get_current_business
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
+def resequence_orders(db: Session, business_id: int):
+    customers = db.query(models.Customer).filter(models.Customer.business_id == business_id).all()
+    needs_commit = False
+    for cust in customers:
+        prefix = (cust.name or "CUSTOMER").strip().upper().replace(" ", "")
+        cust_orders = db.query(models.Order).filter(
+            models.Order.customer_id == cust.id,
+            models.Order.business_id == business_id
+        ).order_by(models.Order.id.asc()).all()
+        
+        for idx, order in enumerate(cust_orders, start=1):
+            expected_code = f"{prefix}-{idx:03d}"
+            if order.order_code != expected_code:
+                order.order_code = expected_code
+                needs_commit = True
+
+    if needs_commit:
+        db.commit()
+
+    return db.query(models.Order).filter(models.Order.business_id == business_id).order_by(models.Order.id.asc()).all()
+
 @router.get("/")
 def get_orders(db: Session = Depends(get_db), current_business: models.Business = Depends(get_current_business)):
-    return db.query(models.Order).filter(models.Order.business_id == current_business.id).all()
+    return resequence_orders(db, current_business.id)
 
 @router.post("/")
 def create_order(
@@ -24,13 +45,19 @@ def create_order(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    customer_name = customer.name.upper().replace(" ", "")
-
-    order_count = db.query(models.Order).filter(
-        models.Order.customer_id == data.customer_id
+    prefix = (customer.name or "CUSTOMER").strip().upper().replace(" ", "")
+    cust_orders_count = db.query(models.Order).filter(
+        models.Order.customer_id == data.customer_id,
+        models.Order.business_id == current_business.id
     ).count() + 1
 
-    order_code = f"{customer_name}-{order_count:03}"
+    order_code = f"{prefix}-{cust_orders_count:03d}"
+    while db.query(models.Order).filter(
+        models.Order.business_id == current_business.id,
+        models.Order.order_code == order_code
+    ).first():
+        cust_orders_count += 1
+        order_code = f"{prefix}-{cust_orders_count:03d}"
 
     order = models.Order(
         business_id = current_business.id,
@@ -74,6 +101,8 @@ def delete_order(id: int, db: Session = Depends(get_db), current_business: model
 
     db.delete(order)
     db.commit()
+
+    resequence_orders(db, current_business.id)
 
     return {"message": "Order deleted"}
 
