@@ -6,13 +6,15 @@ import {
   Edit2, Trash2, Eye, MoreHorizontal, X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getCustomers, addCustomer, deleteCustomer } from "@/lib/api";
+import { getCustomers, addCustomer, updateCustomer, deleteCustomer } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/PhoneInput";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -98,15 +100,32 @@ export default function Customers() {
     },
   });
 
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => updateCustomer(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      setEditOpen(false);
+      setEditingCustomer(null);
+    },
+    onError: (err: any) => {
+      setEditError(err.message || "Failed to update customer.");
+    }
+  });
+
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editError, setEditError] = useState("");
   const [limitModalOpen, setLimitModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
 
   const filtered = customers.filter((c: Customer) =>
     c.name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.email?.toLowerCase().includes(search.toLowerCase())
+    c.email?.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone?.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleAdd = (e: React.FormEvent) => {
@@ -122,10 +141,34 @@ export default function Customers() {
     createMut.mutate(newForm);
   };
 
+  const openEditDialog = (c: Customer) => {
+    setEditingCustomer(c);
+    setEditForm({
+      name: c.name || "",
+      email: c.email || "",
+      phone: c.phone || "",
+      address: c.address || "",
+    });
+    setEditError("");
+    setEditOpen(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCustomer) return;
+    if (!editForm.name.trim() || !editForm.phone.trim()) {
+      setEditError("Name and Phone number are required.");
+      return;
+    }
+    setEditError("");
+    updateMut.mutate({ id: editingCustomer.id, data: editForm });
+  };
+
   const handleDelete = (id: number, name: string) => {
     if (!window.confirm(`Remove ${name}?`)) return;
     deleteMut.mutate(id);
   };
+
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -185,15 +228,13 @@ export default function Customers() {
                 <Label className="text-sm">Full Name *</Label>
                 <Input className="h-9 rounded-xl" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Email</Label>
-                  <Input type="email" className="h-9 rounded-xl" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Phone *</Label>
-                  <Input type="tel" className="h-9 rounded-xl" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Phone *</Label>
+                <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Email</Label>
+                <Input type="email" className="h-9 rounded-xl" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm">Address</Label>
@@ -209,6 +250,41 @@ export default function Customers() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Customer Dialog */}
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Customer</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-4 mt-2">
+              <div className="space-y-1.5">
+                <Label className="text-sm">Full Name *</Label>
+                <Input className="h-9 rounded-xl" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Phone *</Label>
+                <PhoneInput value={editForm.phone} onChange={(v) => setEditForm({ ...editForm, phone: v })} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Email</Label>
+                <Input type="email" className="h-9 rounded-xl" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Address</Label>
+                <Input className="h-9 rounded-xl" value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+              </div>
+              {editError && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{editError}</p>}
+              <div className="flex gap-2 pt-1">
+                <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setEditOpen(false)}>Cancel</Button>
+                <Button type="submit" className="flex-1 gradient-brand text-white rounded-xl" disabled={updateMut.isPending}>
+                  {updateMut.isPending ? "Saving…" : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
       </motion.div>
 
       {/* Search + count */}
@@ -287,11 +363,16 @@ export default function Customers() {
                           <Eye className="h-3.5 w-3.5" /> View Profile
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem className="flex items-center gap-2 text-sm text-sky-600 focus:text-sky-600"
+                        onClick={() => openEditDialog(c)}>
+                        <Edit2 className="h-3.5 w-3.5" /> Edit Profile
+                      </DropdownMenuItem>
                       <DropdownMenuItem className="flex items-center gap-2 text-sm text-red-600 focus:text-red-600"
                         onClick={() => handleDelete(c.id, c.name)}>
                         <Trash2 className="h-3.5 w-3.5" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
+
                   </DropdownMenu>
                 </div>
 

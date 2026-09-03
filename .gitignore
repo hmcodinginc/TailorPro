@@ -50,4 +50,8 @@ backend/*.db.backup
 
 # Python cache
 __pycache__/
-*.py[cod]
+*.py[cod]/tms.db
+/tms.db-*
+
+tms.db
+tms.db-*

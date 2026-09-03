@@ -47,10 +47,13 @@ import {
 import {
   getGarmentsByGender,
   findGarmentTemplate,
+  garmentsMatch,
+  normalizeGarmentKey,
   MEN_GARMENTS,
   WOMEN_GARMENTS,
   GarmentTemplate,
 } from "@/lib/garments"
+
 import { generateMeasurementPDF } from "@/lib/measurementPdf"
 import { motion } from "framer-motion"
 import { GarmentVisualizer } from "@/components/GarmentVisualizer"
@@ -81,6 +84,7 @@ function MeasurementForm({
   isPending,
   submitLabel,
   customers,
+  measurements,
 }: {
   form: FormValues
   setForm: (f: FormValues) => void
@@ -90,7 +94,9 @@ function MeasurementForm({
   isPending: boolean
   submitLabel: string
   customers: any[]
+  measurements?: any[]
 }) {
+
   const activeGender = (form.gender === "Women" ? "Women" : "Men") as "Men" | "Women"
   const garmentMap = getGarmentsByGender(activeGender)
   const template = form.garment_type ? findGarmentTemplate(form.garment_type, activeGender) : null
@@ -109,29 +115,68 @@ function MeasurementForm({
   }
 
   const handleGarmentChange = (value: string) => {
-    // Retain customer_id, gender, and notes while setting garment_type
+    // Look up previous measurements for this customer and garment (with normalized matching)
+    let prefilledFields: FormValues = {}
+    if (form.customer_id && measurements && measurements.length > 0) {
+      const match = measurements
+        .filter((m: any) => String(m.customer_id) === String(form.customer_id) && garmentsMatch(m.garment_type, value))
+        .sort((a: any, b: any) => (b.id || 0) - (a.id || 0))[0]
+      if (match) {
+        const { id, image, created_at, business_id, ...rest } = match
+        Object.entries(rest).forEach(([k, v]) => {
+          if (v != null && v !== "") prefilledFields[k] = String(v)
+        })
+      }
+    }
+
     setForm({
+      ...prefilledFields,
       customer_id: form.customer_id,
       gender: form.gender || "Men",
       garment_type: value,
-      notes: form.notes,
+      notes: prefilledFields.notes || form.notes || "",
     })
     setActiveField(null)
   }
 
+  const handleCustomerChange = (customerId: string) => {
+    // If garment_type is already chosen, check for existing measurements (with normalized matching)
+    let prefilledFields: FormValues = {}
+    if (form.garment_type && measurements && measurements.length > 0) {
+      const match = measurements
+        .filter((m: any) => String(m.customer_id) === String(customerId) && garmentsMatch(m.garment_type, form.garment_type))
+        .sort((a: any, b: any) => (b.id || 0) - (a.id || 0))[0]
+      if (match) {
+        const { id, image, created_at, business_id, ...rest } = match
+        Object.entries(rest).forEach(([k, v]) => {
+          if (v != null && v !== "") prefilledFields[k] = String(v)
+        })
+      }
+    }
+
+    setForm({
+      ...prefilledFields,
+      customer_id: customerId,
+      gender: form.gender || "Men",
+      garment_type: form.garment_type,
+      notes: prefilledFields.notes || form.notes || "",
+    })
+  }
+
+
   return (
-    <form onSubmit={onSubmit} className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
+    <form onSubmit={onSubmit} className="space-y-5 max-h-[80vh] overflow-y-auto pr-2">
       {/* Customer Selection */}
       <div className="space-y-1.5">
         <Label className="font-semibold text-sm">Customer</Label>
         <Select
           value={form.customer_id}
-          onValueChange={(v) => setForm({ ...form, customer_id: v })}
+          onValueChange={handleCustomerChange}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select a customer" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60">
             {customers.map((c: any) => (
               <SelectItem key={c.id} value={String(c.id)}>
                 {c.name} {c.phone ? `(${c.phone})` : ""}
@@ -140,6 +185,7 @@ function MeasurementForm({
           </SelectContent>
         </Select>
       </div>
+
 
       {/* Gender Selection Step */}
       <div className="space-y-1.5">
@@ -401,7 +447,7 @@ export default function Measurements() {
               Add Measurement Record
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-lg">
                 <Ruler className="h-5 w-5 text-indigo-600" />
@@ -420,8 +466,10 @@ export default function Measurements() {
               isPending={addMutation.isPending}
               submitLabel="Save Measurements"
               customers={customers}
+              measurements={measurements}
             />
           </DialogContent>
+
         </Dialog>
       </div>
 
@@ -630,7 +678,7 @@ export default function Measurements() {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <Pencil className="h-5 w-5 text-indigo-600" />
@@ -650,9 +698,11 @@ export default function Measurements() {
             isPending={updateMutation.isPending}
             submitLabel="Save Changes"
             customers={customers}
+            measurements={measurements}
           />
         </DialogContent>
       </Dialog>
+
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -732,8 +782,10 @@ export default function Measurements() {
                     garmentType={previewData.m.garment_type} 
                     activeField={null} 
                     fieldValues={previewData.m} 
+                    hideHelperText={true}
                   />
                 </div>
+
 
                 {/* Fields Table */}
                 <div className="space-y-4">

@@ -388,13 +388,14 @@ export default function Subscription() {
                 <p className="text-xs text-muted-foreground">Current Plan</p>
                 <p className="text-sm font-semibold text-foreground">
                   {data.status === "ACTIVE_MONTHLY"
-                    ? "TailorPro Monthly (₹1,500/mo)"
+                    ? "TailorPro Monthly (₹5,000/mo)"
                     : data.status === "ACTIVE_YEARLY"
-                    ? "TailorPro Yearly (₹15,000/yr)"
+                    ? "TailorPro Yearly (₹50,000/yr)"
                     : data.status === "TRIAL"
-                    ? "30-Day Free Trial"
+                    ? "7-Day Free Trial"
                     : "Plan Expired"}
                 </p>
+
               </div>
             </div>
 
@@ -469,7 +470,7 @@ export default function Subscription() {
 
               <div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-foreground">₹1,500</span>
+                  <span className="text-4xl font-extrabold text-foreground">₹5,000</span>
                   <span className="text-muted-foreground text-sm font-medium">/ month</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Flexible monthly billing. Cancel anytime.</p>
@@ -505,7 +506,7 @@ export default function Subscription() {
               ) : (
                 <>
                   <Zap className="h-4 w-4" />
-                  <span>Subscribe Monthly (₹1,500)</span>
+                  <span>Subscribe Monthly (₹5,000)</span>
                 </>
               )}
             </button>
@@ -519,7 +520,7 @@ export default function Subscription() {
           >
             <div className="absolute top-3 right-3">
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-primary text-primary-foreground shadow-sm">
-                <Sparkles className="h-3 w-3" /> Save ₹3,000/yr
+                <Sparkles className="h-3 w-3" /> Save ₹10,000/yr
               </span>
             </div>
 
@@ -532,11 +533,11 @@ export default function Subscription() {
 
               <div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-foreground">₹15,000</span>
+                  <span className="text-4xl font-extrabold text-foreground">₹50,000</span>
                   <span className="text-muted-foreground text-sm font-medium">/ year</span>
                 </div>
                 <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
-                  <Award className="h-3.5 w-3.5" /> Equivalent to ₹1,250/month
+                  <Award className="h-3.5 w-3.5" /> Equivalent to ₹4,167/month
                 </p>
               </div>
 
@@ -570,7 +571,7 @@ export default function Subscription() {
               ) : (
                 <>
                   <CreditCard className="h-4 w-4" />
-                  <span>Subscribe Yearly (₹15,000)</span>
+                  <span>Subscribe Yearly (₹50,000)</span>
                 </>
               )}
             </button>
@@ -578,35 +579,38 @@ export default function Subscription() {
         </div>
       </div>
 
-      {/* Admin Manual Trial Extension Panel */}
-      <div className="bg-card border border-border rounded-2xl p-6 shadow-sm mt-8">
-        <div className="flex items-center gap-2 mb-2">
-          <UserCheck className="h-5 w-5 text-primary" />
-          <h4 className="font-bold text-foreground">Admin Trial Management</h4>
-        </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          Manually grant or extend free trial period for testing or customer support.
-        </p>
+      {/* Admin Manual Trial Extension Panel — ONLY visible to system admins */}
+      {data?.is_admin && (
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm mt-8">
+          <div className="flex items-center gap-2 mb-2">
+            <UserCheck className="h-5 w-5 text-primary" />
+            <h4 className="font-bold text-foreground">Admin Trial Management</h4>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            Manually grant or extend free trial period for testing or customer support.
+          </p>
 
-        <div className="flex items-center gap-3 max-w-md">
-          <input
-            type="number"
-            min="1"
-            max="365"
-            value={grantDays}
-            onChange={(e) => setGrantDays(Number(e.target.value))}
-            className="w-24 px-3 py-2 rounded-xl bg-muted border text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <span className="text-sm text-muted-foreground">days</span>
-          <button
-            onClick={handleGrantTrial}
-            disabled={grantingTrial}
-            className="px-4 py-2 rounded-xl bg-secondary text-secondary-foreground font-semibold text-xs hover:bg-secondary/80 transition-all flex items-center gap-1.5"
-          >
-            {grantingTrial ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "Grant / Extend Trial"}
-          </button>
+          <div className="flex items-center gap-3 max-w-md">
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={grantDays}
+              onChange={(e) => setGrantDays(Number(e.target.value))}
+              className="w-24 px-3 py-2 rounded-xl bg-muted border text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <span className="text-sm text-muted-foreground">days</span>
+            <button
+              onClick={handleGrantTrial}
+              disabled={grantingTrial}
+              className="px-4 py-2 rounded-xl bg-secondary text-secondary-foreground font-semibold text-xs hover:bg-secondary/80 transition-all flex items-center gap-1.5"
+            >
+              {grantingTrial ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "Grant / Extend Trial"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
+

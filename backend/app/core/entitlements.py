@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from ..models import Business, SubscriptionStatus, Customer
 
 FREE_TRIAL_CLIENT_LIMIT = 10
+DEFAULT_TRIAL_DAYS = 7
 
 def get_business_entitlement_status(business: Business) -> SubscriptionStatus:
     if not business:
@@ -59,9 +60,11 @@ def check_client_limit(business: Business, db: Session) -> tuple[bool, int, int]
         allowed = current_count < max_limit
         return allowed, current_count, max_limit
     elif effective_status == SubscriptionStatus.CUSTOM:
-        max_limit = business.custom_client_limit if business.custom_client_limit is not None else 999999
+        custom_limit = getattr(business, "custom_client_limit", None)
+        max_limit = custom_limit if custom_limit is not None else 999999
         allowed = current_count < max_limit
         return allowed, current_count, max_limit
+
     else:
         # PAID plans (ACTIVE_MONTHLY, ACTIVE_YEARLY) have unlimited clients (-1)
         return True, current_count, -1

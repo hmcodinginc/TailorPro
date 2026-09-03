@@ -6,10 +6,12 @@ interface GarmentVisualizerProps {
   garmentType: string
   activeField: string | null
   fieldValues: Record<string, string>
+  hideHelperText?: boolean
 }
 
-export function GarmentVisualizer({ garmentType, activeField, fieldValues }: GarmentVisualizerProps) {
+export function GarmentVisualizer({ garmentType, activeField, fieldValues, hideHelperText = false }: GarmentVisualizerProps) {
   const measurementMap = getGarmentMeasurementMap(garmentType)
+
   
   if (!measurementMap) {
     return null
@@ -104,17 +106,20 @@ export function GarmentVisualizer({ garmentType, activeField, fieldValues }: Gar
           )
         })}
       </svg>
-      <div className="text-center mt-4">
-        <p className="text-xs text-muted-foreground">
-          {activeField ? (
-            <>
-              Enter <strong className="text-foreground">{measurementMap[activeField]?.label || activeField}</strong>
-            </>
-          ) : (
-            "Select a measurement field"
-          )}
-        </p>
-      </div>
+      {!hideHelperText && (
+        <div className="text-center mt-4">
+          <p className="text-xs text-muted-foreground">
+            {activeField ? (
+              <>
+                Enter <strong className="text-foreground">{measurementMap[activeField]?.label || activeField}</strong>
+              </>
+            ) : (
+              "Select a measurement field"
+            )}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
+

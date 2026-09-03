@@ -1,12 +1,17 @@
 import { useParams, useNavigate } from "react-router-dom"
 import { useEffect, useState } from "react"
-import { Ruler, Phone, Mail, MapPin, ShoppingBag, FileText, ArrowLeft, Download } from "lucide-react"
-import { getCustomers, getMeasurements, getOrders, getInvoices } from "@/lib/api"
+import { Ruler, Phone, Mail, MapPin, ShoppingBag, FileText, ArrowLeft, Download, Pencil } from "lucide-react"
+import { getCustomers, getMeasurements, getOrders, getInvoices, updateCustomer, getBusinessProfile } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { PhoneInput } from "@/components/PhoneInput"
 import { findGarmentTemplate } from "@/lib/garments"
 import { generateMeasurementPDF } from "@/lib/measurementPdf"
+import { generateInvoicePDF } from "@/lib/invoicePdf"
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   const s = status?.toLowerCase()
@@ -21,28 +26,65 @@ export default function CustomerDetail() {
   const navigate = useNavigate()
 
   const [customer, setCustomer] = useState<any>(null)
+  const [business, setBusiness] = useState<any>(null)
   const [measurements, setMeasurements] = useState<any[]>([])
   const [orders, setOrders] = useState<any[]>([])
   const [invoices, setInvoices] = useState<any[]>([])
 
-  useEffect(() => {
-    async function load() {
-      const [customers, allMeasurements, allOrders, allInvoices] = await Promise.all([
-        getCustomers(), getMeasurements(), getOrders(), getInvoices(),
-      ])
-      const c = customers.find((x: any) => x.id === Number(id))
-      setCustomer(c)
-      setMeasurements(allMeasurements.filter((m: any) => m.customer_id === Number(id)))
-      setOrders(allOrders.filter((o: any) => o.customer_id === Number(id)))
-      setInvoices(allInvoices.filter((i: any) => i.customer_id === Number(id)))
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState({ name: "", phone: "", email: "", address: "" })
+  const [editError, setEditError] = useState("")
+  const [editSubmitting, setEditSubmitting] = useState(false)
+
+  const reloadData = async () => {
+    const [customers, allMeasurements, allOrders, allInvoices, biz] = await Promise.all([
+      getCustomers(), getMeasurements(), getOrders(), getInvoices(), getBusinessProfile().catch(() => null),
+    ])
+    setBusiness(biz)
+
+    const c = customers.find((x: any) => x.id === Number(id))
+    setCustomer(c)
+    if (c) {
+      setEditForm({
+        name: c.name || "",
+        phone: c.phone || "",
+        email: c.email || "",
+        address: c.address || "",
+      })
     }
-    load()
+    setMeasurements(allMeasurements.filter((m: any) => m.customer_id === Number(id)))
+    setOrders(allOrders.filter((o: any) => o.customer_id === Number(id)))
+    setInvoices(allInvoices.filter((i: any) => i.customer_id === Number(id)))
+  }
+
+  useEffect(() => {
+    reloadData()
   }, [id])
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editForm.name.trim() || !editForm.phone.trim()) {
+      setEditError("Name and Phone number are required.")
+      return
+    }
+    setEditError("")
+    try {
+      setEditSubmitting(true)
+      await updateCustomer(Number(id), editForm)
+      setEditOpen(false)
+      await reloadData()
+    } catch (err: any) {
+      setEditError(err.message || "Failed to update customer.")
+    } finally {
+      setEditSubmitting(false)
+    }
+  }
 
   if (!customer) return <p className="p-6 text-muted-foreground">Loading customer details...</p>
 
   return (
     <div className="space-y-6 p-4 max-w-4xl mx-auto">
+
       <Button variant="outline" size="sm" onClick={() => navigate("/customers")}>
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Customers
@@ -50,8 +92,11 @@ export default function CustomerDetail() {
 
       {/* ── Customer Profile ── */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-bold">{customer.name}</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5 h-8">
+            <Pencil className="h-3.5 w-3.5" /> Edit Profile
+          </Button>
         </CardHeader>
         <CardContent className="grid sm:grid-cols-2 gap-3 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -68,6 +113,41 @@ export default function CustomerDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Full Name *</Label>
+              <Input className="h-9 rounded-xl" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Phone *</Label>
+              <PhoneInput value={editForm.phone} onChange={(v) => setEditForm({ ...editForm, phone: v })} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Email</Label>
+              <Input type="email" className="h-9 rounded-xl" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Address</Label>
+              <Input className="h-9 rounded-xl" value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+            </div>
+            {editError && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{editError}</p>}
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button type="submit" className="flex-1 gradient-brand text-white rounded-xl" disabled={editSubmitting}>
+                {editSubmitting ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
 
       {/* ── Measurements ── */}
       <Card>
@@ -221,28 +301,47 @@ export default function CustomerDetail() {
           {invoices.length === 0 && (
             <p className="text-sm text-muted-foreground">No invoices yet.</p>
           )}
-          {invoices.map((i: any) => (
-            <div key={i.id} className="border rounded-lg p-4 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-muted-foreground">
-                  Invoice #{i.id}
-                </p>
-                <Badge variant={statusVariant(i.status)}>{i.status}</Badge>
-              </div>
-              <div className="flex gap-6 text-sm">
-                <span className="font-medium">₹{i.amount}</span>
-                {i.created_at && (
-                  <span className="text-muted-foreground">
-                    {new Date(i.created_at).toLocaleDateString("en-IN", {
-                      day: "numeric", month: "short", year: "numeric",
-                    })}
+          {invoices.map((i: any) => {
+            const paid = i.paid_amount ?? 0;
+            const remaining = i.remaining_amount ?? Math.max(0, i.amount - paid);
+            return (
+              <div key={i.id} className="border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {i.invoice_number || `Invoice #${i.id}`}
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <Badge variant={statusVariant(i.status)}>{remaining <= 0 ? "Paid" : i.status}</Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => generateInvoicePDF({ invoice: i, customer, business })}
+                    >
+                      <Download className="h-3 w-3" /> PDF
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-4 text-xs">
+                  <span>Total: <strong>₹{Number(i.amount).toLocaleString()}</strong></span>
+                  <span className="text-emerald-600">Paid: <strong>₹{Number(paid).toLocaleString()}</strong></span>
+                  <span className={remaining > 0 ? "text-rose-600" : "text-emerald-600"}>
+                    Remaining: <strong>₹{Number(remaining).toLocaleString()}</strong>
                   </span>
-                )}
+                  {i.created_at && (
+                    <span className="text-muted-foreground ml-auto">
+                      {new Date(i.created_at).toLocaleDateString("en-IN", {
+                        day: "numeric", month: "short", year: "numeric",
+                      })}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
     </div>
   )
-}
+}

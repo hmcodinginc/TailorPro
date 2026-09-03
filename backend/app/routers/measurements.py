@@ -133,3 +133,20 @@ def update_measurement(
     db.commit()
     db.refresh(m)
     return m
+
+@router.delete("/{id}")
+def delete_measurement(
+    id: int,
+    db: Session = Depends(database.get_db),
+    current_business: models.Business = Depends(get_current_business)
+):
+    m = db.query(models.Measurement).filter(
+        models.Measurement.id == id,
+        models.Measurement.business_id == current_business.id
+    ).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+
+    db.delete(m)
+    db.commit()
+    return {"message": "Measurement deleted successfully"}

@@ -1,15 +1,22 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  User, Store, Bell, Palette, Shield,
+  User, Store, Bell, Shield,
   Save, Check, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { changePassword, getBusinessProfile, updateBusinessProfile } from "@/lib/api";
+import {
+  changePassword,
+  getBusinessProfile,
+  updateBusinessProfile,
+  getUserProfile,
+  updateUserProfile
+} from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { PhoneInput } from "@/components/PhoneInput";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
@@ -18,7 +25,6 @@ const TABS = [
   { id: "profile",       label: "Profile",       icon: User    },
   { id: "shop",         label: "Shop Info",     icon: Store   },
   { id: "notifications",label: "Notifications", icon: Bell    },
-  { id: "appearance",   label: "Appearance",    icon: Palette },
   { id: "security",     label: "Security",      icon: Shield  },
 ];
 
@@ -58,15 +64,34 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const [tab, setTab]       = useState("profile");
   const [saved, setSaved]   = useState(false);
-  const [profile, setProfile] = useState({ name: "Tailor Studio", email: "admin@tailorpro.com", phone: "+91 98765 43210" });
   
+  // Real Profile State
+  const [profile, setProfile] = useState({ name: "", email: "", phone: "" });
+  
+  // Real Shop State
   const [shop, setShop] = useState({ name: "", address: "", phone: "", email: "", gst_number: "" });
   
+  // Queries
+  const { data: userData, isLoading: userLoading } = useQuery({
+    queryKey: ["userProfile"],
+    queryFn: getUserProfile,
+  });
+
   const { data: businessData, isLoading: businessLoading } = useQuery({
     queryKey: ["business"],
-    queryFn: getBusinessProfile
+    queryFn: getBusinessProfile,
   });
   
+  useEffect(() => {
+    if (userData) {
+      setProfile({
+        name: userData.name || "",
+        email: userData.email || "",
+        phone: userData.phone || "",
+      });
+    }
+  }, [userData]);
+
   useEffect(() => {
     if (businessData) {
       setShop({
@@ -74,10 +99,19 @@ export default function Settings() {
         address: businessData.address || "",
         phone: businessData.phone || "",
         email: businessData.email || "",
-        gst_number: businessData.gst_number || ""
+        gst_number: businessData.gst_number || "",
       });
     }
   }, [businessData]);
+
+  const updateProfileMutation = useMutation({
+    mutationFn: updateUserProfile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
 
   const updateBusinessMutation = useMutation({
     mutationFn: updateBusinessProfile,
@@ -85,11 +119,10 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ["business"] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    }
+    },
   });
 
   const [notifs, setNotifs] = useState({ orderAlerts: true, dueDateReminders: true, paymentAlerts: true, weeklyReport: false });
-  const [look, setLook]     = useState({ theme: "light", accent: "sky" });
   
   const [passwordData, setPasswordData] = useState({ current_password: "", new_password: "", confirm_password: "" });
   const [passwordError, setPasswordError] = useState("");
@@ -117,7 +150,7 @@ export default function Settings() {
       setPasswordLoading(true);
       await changePassword({
         current_password: passwordData.current_password,
-        new_password: passwordData.new_password
+        new_password: passwordData.new_password,
       });
       setPasswordSuccess(true);
       setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
@@ -129,7 +162,12 @@ export default function Settings() {
   };
 
   const handleSave = () => {
-    if (tab === "shop") {
+    if (tab === "profile") {
+      updateProfileMutation.mutate({
+        name: profile.name,
+        phone: profile.phone,
+      });
+    } else if (tab === "shop") {
       updateBusinessMutation.mutate(shop);
     } else {
       setSaved(true);
@@ -139,15 +177,13 @@ export default function Settings() {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-
       {/* Header */}
       <motion.div variants={item}>
         <h1 className="text-xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Manage your account and studio preferences</p>
+        <p className="text-sm text-gray-500 mt-0.5">Manage your studio profile and preferences</p>
       </motion.div>
 
-      <div className="flex flex-col lg:flex-row gap-5">
-
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Sidebar tabs */}
         <motion.div variants={item} className="lg:w-52 shrink-0">
           <div className="bg-white border border-gray-100 rounded-2xl p-2 shadow-sm flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
@@ -158,7 +194,7 @@ export default function Settings() {
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap w-full text-left",
                   tab === id
-                    ? "bg-sky-50 text-sky-700"
+                    ? "bg-sky-50 text-sky-700 font-semibold"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                 )}
               >
@@ -171,7 +207,7 @@ export default function Settings() {
         </motion.div>
 
         {/* Content panel */}
-        <motion.div variants={item} className="flex-1 bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+        <motion.div variants={item} className="flex-1 bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden w-full">
           <div className="p-6">
             {/* Section header */}
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
@@ -186,11 +222,10 @@ export default function Settings() {
                     <div>
                       <h2 className="font-semibold text-gray-900">{t.label}</h2>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {tab === "profile"        && "Update your personal details"}
-                        {tab === "shop"           && "Your studio details and billing info"}
+                        {tab === "profile"        && "Update your personal credentials and phone"}
+                        {tab === "shop"           && "Your studio details, GST, and billing address"}
                         {tab === "notifications"  && "Choose what alerts you receive"}
-                        {tab === "appearance"     && "Customize the look and feel"}
-                        {tab === "security"       && "Manage your password and access"}
+                        {tab === "security"       && "Manage your account password"}
                       </p>
                     </div>
                   </>
@@ -201,40 +236,96 @@ export default function Settings() {
             {/* Profile */}
             {tab === "profile" && (
               <div className="space-y-4">
-                {[
-                  { label: "Display Name", key: "name", type: "text" },
-                  { label: "Email Address", key: "email", type: "email" },
-                  { label: "Phone Number", key: "phone", type: "tel" },
-                ].map(({ label, key, type }) => (
-                  <div key={key} className="space-y-1.5">
-                    <Label className="text-sm font-medium text-gray-700">{label}</Label>
-                    <Input type={type} className="h-9 rounded-xl border-gray-200"
-                      value={(profile as any)[key]}
-                      onChange={(e) => setProfile({ ...profile, [key]: e.target.value })} />
-                  </div>
-                ))}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Display Name</Label>
+                  <Input
+                    type="text"
+                    className="h-9 rounded-xl border-gray-200"
+                    placeholder="Your Name"
+                    value={profile.name}
+                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                    disabled={userLoading}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Email Address</Label>
+                  <Input
+                    type="email"
+                    className="h-9 rounded-xl border-gray-200 bg-gray-50 text-gray-500"
+                    value={profile.email}
+                    disabled
+                  />
+                  <p className="text-[11px] text-gray-400">Account login email cannot be changed directly.</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Phone Number</Label>
+                  <PhoneInput
+                    value={profile.phone}
+                    onChange={(v) => setProfile({ ...profile, phone: v })}
+                    disabled={userLoading}
+                  />
+                </div>
               </div>
             )}
 
             {/* Shop */}
             {tab === "shop" && (
               <div className="space-y-4">
-                {[
-                  { label: "Shop Name",  key: "name" },
-                  { label: "Phone",      key: "phone" },
-                  { label: "Email",      key: "email" },
-                  { label: "Address",    key: "address" },
-                  { label: "GST Number", key: "gst_number" },
-                ].map(({ label, key }) => (
-                  <div key={key} className="space-y-1.5">
-                    <Label className="text-sm font-medium text-gray-700">{label}</Label>
-                    <Input className="h-9 rounded-xl border-gray-200"
-                      value={(shop as any)[key]}
-                      onChange={(e) => setShop({ ...shop, [key]: e.target.value })} 
-                      disabled={businessLoading}
-                    />
-                  </div>
-                ))}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Shop / Studio Name</Label>
+                  <Input
+                    className="h-9 rounded-xl border-gray-200"
+                    placeholder="My Boutique"
+                    value={shop.name}
+                    onChange={(e) => setShop({ ...shop, name: e.target.value })}
+                    disabled={businessLoading}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Studio Phone</Label>
+                  <PhoneInput
+                    value={shop.phone}
+                    onChange={(v) => setShop({ ...shop, phone: v })}
+                    disabled={businessLoading}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Studio Email</Label>
+                  <Input
+                    type="email"
+                    className="h-9 rounded-xl border-gray-200"
+                    placeholder="shop@example.com"
+                    value={shop.email}
+                    onChange={(e) => setShop({ ...shop, email: e.target.value })}
+                    disabled={businessLoading}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">Studio Address</Label>
+                  <Input
+                    className="h-9 rounded-xl border-gray-200"
+                    placeholder="123 Fashion Street, City"
+                    value={shop.address}
+                    onChange={(e) => setShop({ ...shop, address: e.target.value })}
+                    disabled={businessLoading}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700">GST Number</Label>
+                  <Input
+                    className="h-9 rounded-xl border-gray-200 uppercase"
+                    placeholder="22AAAAA0000A1Z5"
+                    value={shop.gst_number}
+                    onChange={(e) => setShop({ ...shop, gst_number: e.target.value.toUpperCase() })}
+                    disabled={businessLoading}
+                  />
+                </div>
               </div>
             )}
 
@@ -253,53 +344,6 @@ export default function Settings() {
                 <SettingRow label="Weekly Report" description="Receive a weekly summary of your studio">
                   <Toggle checked={notifs.weeklyReport} onChange={(v) => setNotifs({ ...notifs, weeklyReport: v })} />
                 </SettingRow>
-              </div>
-            )}
-
-            {/* Appearance */}
-            {tab === "appearance" && (
-              <div className="space-y-6">
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-3">Theme</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    {["light", "dark", "system"].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setLook({ ...look, theme: t })}
-                        className={cn(
-                          "p-3 rounded-xl border text-sm font-medium capitalize transition-all",
-                          look.theme === t
-                            ? "border-sky-400 bg-sky-50 text-sky-700"
-                            : "border-gray-200 text-gray-600 hover:border-sky-300 hover:text-sky-600"
-                        )}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-3">Accent Color</p>
-                  <div className="flex gap-3">
-                    {[
-                      { id: "sky",    bg: "bg-sky-500"    },
-                      { id: "teal",   bg: "bg-teal-500"   },
-                      { id: "violet", bg: "bg-violet-500" },
-                      { id: "rose",   bg: "bg-rose-500"   },
-                      { id: "amber",  bg: "bg-amber-500"  },
-                    ].map(({ id, bg }) => (
-                      <button
-                        key={id}
-                        onClick={() => setLook({ ...look, accent: id })}
-                        className={cn(
-                          "h-8 w-8 rounded-xl transition-all",
-                          bg,
-                          look.accent === id ? "ring-2 ring-offset-2 ring-sky-400 scale-110" : "hover:scale-105"
-                        )}
-                      />
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -364,21 +408,24 @@ export default function Settings() {
           </div>
 
           {/* Save bar */}
-          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
-            <p className="text-xs text-gray-400">
-              {saved ? "All changes saved successfully." : "Changes are saved to your account."}
-            </p>
-            <Button
-              onClick={handleSave}
-              className={cn(
-                "gap-2 h-9 text-sm rounded-xl transition-all font-semibold",
-                saved ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "gradient-brand text-white shadow-brand-sm hover:opacity-90"
-              )}
-            >
-              {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-              {saved ? "Saved!" : "Save Changes"}
-            </Button>
-          </div>
+          {(tab === "profile" || tab === "shop") && (
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+              <p className="text-xs text-gray-400">
+                {saved ? "All changes saved successfully." : "Changes are saved to your account in the backend."}
+              </p>
+              <Button
+                onClick={handleSave}
+                disabled={updateProfileMutation.isPending || updateBusinessMutation.isPending}
+                className={cn(
+                  "gap-2 h-9 text-sm rounded-xl transition-all font-semibold",
+                  saved ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "gradient-brand text-white shadow-brand-sm hover:opacity-90"
+                )}
+              >
+                {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+                {saved ? "Saved!" : "Save Changes"}
+              </Button>
+            </div>
+          )}
         </motion.div>
       </div>
     </motion.div>

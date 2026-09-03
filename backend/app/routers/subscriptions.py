@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models, schemas
-from ..core.dependencies import get_current_user, get_current_business, get_business_unrestricted
+from ..core.dependencies import get_current_user, get_current_business, get_business_unrestricted, require_super_admin
 from ..core.entitlements import (
+
     get_business_entitlement_status,
     is_account_allowed,
     check_client_limit,
@@ -95,24 +96,25 @@ def get_subscription_status(
             {
                 "id": "TAILORPRO_MONTHLY",
                 "name": "TailorPro Monthly",
-                "price": 1500,
+                "price": 5000,
                 "currency": "INR",
                 "billing_cycle": "monthly",
-                "formatted_price": "₹1,500/month",
+                "formatted_price": "₹5,000/month",
                 "features": ["Unlimited clients", "Full order & invoice management", "Measurements & inventory"]
             },
             {
                 "id": "TAILORPRO_YEARLY",
                 "name": "TailorPro Yearly",
-                "price": 15000,
+                "price": 50000,
                 "currency": "INR",
                 "billing_cycle": "yearly",
-                "formatted_price": "₹15,000/year",
-                "effective_monthly": "₹1,250/month",
-                "features": ["Unlimited clients", "Full order & invoice management", "Measurements & inventory", "Equivalent to ₹1,250/mo (Save ₹3,000/yr)"]
+                "formatted_price": "₹50,000/year",
+                "effective_monthly": "₹4,167/month",
+                "features": ["Unlimited clients", "Full order & invoice management", "Measurements & inventory", "Equivalent to ₹4,167/mo (Save ₹10,000/yr)"]
             }
         ]
     }
+
 
 
 @router.post("/create-subscription")
@@ -400,9 +402,10 @@ def verify_otp(
 @router.post("/admin/grant-trial")
 def admin_grant_trial(
     data: schemas.GrantTrialRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_super_admin),
     db: Session = Depends(get_db)
 ):
+
     target_business = db.query(models.Business).filter(models.Business.id == data.business_id).first()
     if not target_business:
         raise HTTPException(status_code=404, detail="Business not found")
