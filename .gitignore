@@ -42,3 +42,12 @@ Thumbs.db
 *.sln
 *.sw?
 .env
+
+# Local development database
+backend/tms.db
+backend/tms.db-*
+backend/*.db.backup
+
+# Python cache
+__pycache__/
+*.py[cod]
