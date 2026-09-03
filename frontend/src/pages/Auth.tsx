@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginUser, signupUser, forgotPassword, resetPassword, verifyEmail } from "@/lib/api";
+import { PhoneInput } from "@/components/PhoneInput";
+
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -71,7 +73,7 @@ export default function Auth() {
           email: form.email,
           password: form.password
         });
-        setSuccessMsg(res.message || "Account created! 30-day free trial activated.");
+        setSuccessMsg(res.message || "Account created! 7-day free trial activated.");
         setForm({ name: "", business_name: "", phone: "", email: "", password: "", confirm: "" });
       } else if (mode === "login") {
         const data: any = await loginUser({ email: form.email, password: form.password });
@@ -185,16 +187,15 @@ export default function Auth() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm font-medium text-gray-700 font-sans">Phone Number (Required for 30-Day Trial)</Label>
-                    <Input
-                      type="tel"
-                      className="h-10 rounded-xl border-gray-200 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400"
-                      placeholder="+91 98765 43210"
+                    <Label className="text-sm font-medium text-gray-700 font-sans">Phone Number (Required for 7-Day Trial)</Label>
+                    <PhoneInput
                       value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      onChange={(v) => setForm({ ...form, phone: v })}
                       required={mode === "signup"}
                     />
                   </div>
+
+
                 </motion.div>
               )}
             </AnimatePresence>

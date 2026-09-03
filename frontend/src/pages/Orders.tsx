@@ -11,14 +11,18 @@ import {
   Scissors,
   MoreHorizontal,
   X,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 import {
   getOrders,
   getCustomers,
   addOrder,
+  updateOrder,
   deleteOrder,
 } from "@/lib/api";
+
 
 import {
   formatCurrency,
@@ -51,6 +55,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 
 // =====================================================
@@ -164,6 +176,18 @@ export default function Orders() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => updateOrder(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      setEditOpen(false);
+      setEditingOrder(null);
+    },
+    onError: (err: any) => {
+      setEditError(err.message || "Failed to update order.");
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: deleteOrder,
     onMutate: async (id: number) => {
@@ -203,6 +227,47 @@ export default function Orders() {
 
   const [error, setError] =
     useState("");
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editError, setEditError] = useState("");
+
+  const openEditOrderDialog = (order: any) => {
+    setEditingOrder(order);
+    setEditForm({
+      customer_id: String(order.customer_id || ""),
+      description: order.description || "",
+      amount: String(order.amount ?? ""),
+      order_date: order.order_date ? order.order_date.split("T")[0] : "",
+      due_date: order.due_date ? order.due_date.split("T")[0] : "",
+      status: order.status || "Pending",
+    });
+    setEditError("");
+    setEditOpen(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    if (!editForm.customer_id || !editForm.description || !editForm.amount || !editForm.due_date) {
+      setEditError("Please fill in all required fields.");
+      return;
+    }
+    setEditError("");
+    updateMutation.mutate({
+      id: editingOrder.id,
+      data: {
+        customer_id: Number(editForm.customer_id),
+        description: editForm.description,
+        amount: Number(editForm.amount),
+        order_date: editForm.order_date,
+        due_date: editForm.due_date,
+        status: editForm.status,
+      },
+    });
+  };
+
 
 
   // ===================================================
@@ -600,58 +665,30 @@ export default function Orders() {
 
 
                 {/* ORDER DATE */}
-
                 <div className="space-y-1.5">
-
-                  <Label className="text-sm">
-                    Order Date *
-                  </Label>
-
+                  <Label className="text-sm">Order Date *</Label>
                   <Input
                     type="date"
-                    className="h-9 rounded-xl"
+                    className="h-9 rounded-xl text-xs md:text-sm px-3 cursor-pointer"
                     value={form.order_date}
-                    onChange={(e) => {
-
-                      setForm({
-                        ...form,
-                        order_date:
-                          e.target.value,
-                      });
-
-                    }}
+                    onChange={(e) => setForm({ ...form, order_date: e.target.value })}
                     required
                   />
-
                 </div>
-
 
                 {/* DUE DATE */}
-
                 <div className="space-y-1.5">
-
-                  <Label className="text-sm">
-                    Due Date *
-                  </Label>
-
+                  <Label className="text-sm">Due Date *</Label>
                   <Input
                     type="date"
-                    className="h-9 rounded-xl"
+                    className="h-9 rounded-xl text-xs md:text-sm px-3 cursor-pointer"
                     value={form.due_date}
                     min={form.order_date || undefined}
-                    onChange={(e) => {
-
-                      setForm({
-                        ...form,
-                        due_date:
-                          e.target.value,
-                      });
-
-                    }}
+                    onChange={(e) => setForm({ ...form, due_date: e.target.value })}
                     required
                   />
-
                 </div>
+
 
               </div>
 
@@ -769,7 +806,135 @@ export default function Orders() {
 
         </Dialog>
 
+        {/* =================================================
+            EDIT ORDER DIALOG
+        ================================================= */}
+
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Order {editingOrder?.order_code ? `(${editingOrder.order_code})` : ""}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-4 mt-2">
+              <div className="space-y-1.5">
+                <Label className="text-sm">Customer *</Label>
+                <Select
+                  value={editForm.customer_id}
+                  onValueChange={(val) => setEditForm({ ...editForm, customer_id: val })}
+                >
+                  <SelectTrigger className="h-9 rounded-xl">
+                    <SelectValue placeholder="Select customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map((c: any) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm">Description *</Label>
+                <Input
+                  className="h-9 rounded-xl"
+                  placeholder="e.g. Kurta, Shirt, Pant"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm">Amount (₹) *</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  className="h-9 rounded-xl"
+                  placeholder="Enter amount"
+                  value={editForm.amount}
+                  onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Order Date *</Label>
+                  <Input
+                    type="date"
+                    className="h-9 rounded-xl text-xs md:text-sm px-3 cursor-pointer"
+                    value={editForm.order_date}
+                    onChange={(e) => setEditForm({ ...editForm, order_date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Due Date *</Label>
+                  <Input
+                    type="date"
+                    className="h-9 rounded-xl text-xs md:text-sm px-3 cursor-pointer"
+                    value={editForm.due_date}
+                    min={editForm.order_date || undefined}
+                    onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+
+              <div className="space-y-1.5">
+                <Label className="text-sm">Status</Label>
+                <Select
+                  value={editForm.status}
+                  onValueChange={(val) => setEditForm({ ...editForm, status: val })}
+                >
+                  <SelectTrigger className="h-9 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ORDER_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editError && (
+                <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {editError}
+                </p>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onClick={() => {
+                    setEditOpen(false);
+                    setEditingOrder(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 gradient-brand text-white rounded-xl"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving…" : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
       </motion.div>
+
 
 
       {/* =================================================
@@ -1164,35 +1329,45 @@ export default function Orders() {
                   {/* MENU */}
 
                   <div>
-
-                    <button
-                      type="button"
-                      className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100"
-                      onClick={() => {
-
-                        if (
-                          window.confirm(
-                            `Delete ${
-                              order.order_code ||
-                              `Order #${order.id}`
-                            }?`
-                          )
-                        ) {
-
-                          deleteMutation.mutate(
-                            order.id
-                          );
-
-                        }
-
-                      }}
-                    >
-
-                      <MoreHorizontal className="h-4 w-4" />
-
-                    </button>
-
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuItem
+                          className="flex items-center gap-2 text-xs text-sky-600 focus:text-sky-600 cursor-pointer"
+                          onClick={() => openEditOrderDialog(order)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          <span>Edit Order</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="flex items-center gap-2 text-xs text-red-600 focus:text-red-600 cursor-pointer"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Delete ${
+                                  order.order_code ||
+                                  `Order #${order.id}`
+                                }?`
+                              )
+                            ) {
+                              deleteMutation.mutate(order.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Delete</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
+
 
                 </motion.div>
 

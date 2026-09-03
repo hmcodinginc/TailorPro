@@ -1,7 +1,8 @@
 from pydantic import BaseModel
-from typing import Optional
-from datetime import date
+from typing import Optional, List
+from datetime import date, datetime
 from .models import InvoiceStatus, PaymentType
+
 
 class Token(BaseModel):
     access_token: str
@@ -121,12 +122,18 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: str
-    name: Optional[str]
-    business_id: Optional[int]
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    business_id: Optional[int] = None
     is_superadmin: bool = False
 
     class Config:
         from_attributes = True
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
 
 class InvoiceCreate(BaseModel):
     customer_id:  int
@@ -142,18 +149,47 @@ class InvoiceUpdate(BaseModel):
     payment_type: Optional[PaymentType]   = None
     notes:        Optional[str]           = None
 
-class InvoiceResponse(BaseModel):
-    id:           int
-    customer_id:  int
-    order_id:     int
+class PaymentCreate(BaseModel):
     amount:       float
-    status:       InvoiceStatus
-    payment_type: PaymentType
-    notes:        Optional[str]
-    business_id:  Optional[int] = None
+    payment_type: Optional[str] = "cash"
+    reference:    Optional[str] = None
+    notes:        Optional[str] = None
+    payment_date: Optional[datetime] = None
+
+class PaymentResponse(BaseModel):
+    id:           int
+    invoice_id:   int
+    customer_id:  int
+    order_id:     Optional[int] = None
+    amount:       float
+    payment_type: str
+    reference:    Optional[str] = None
+    notes:        Optional[str] = None
+    payment_date: datetime
+    created_at:   datetime
 
     class Config:
         from_attributes = True
+
+class InvoiceResponse(BaseModel):
+    id:               int
+    invoice_number:   Optional[str] = None
+    customer_id:      int
+    order_id:         int
+    amount:           float
+    status:           InvoiceStatus
+    payment_type:     PaymentType
+    notes:            Optional[str]
+    business_id:      Optional[int] = None
+    created_at:       Optional[datetime] = None
+    paid_amount:      float = 0.0
+    remaining_amount: float = 0.0
+    payments:         List[PaymentResponse] = []
+
+
+    class Config:
+        from_attributes = True
+
 
 # BUSINESS SCHEMA
 class BusinessUpdate(BaseModel):
@@ -221,3 +257,38 @@ class InquiryResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+# INVENTORY SCHEMAS
+class InventoryItemCreate(BaseModel):
+    name: str
+    category: str = "Fabric"
+    quantity: float
+    unit: str = "meters"
+    min_stock: float = 0.0
+    price: float = 0.0
+    supplier: Optional[str] = None
+
+class InventoryItemUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    min_stock: Optional[float] = None
+    price: Optional[float] = None
+    supplier: Optional[str] = None
+
+class InventoryItemResponse(BaseModel):
+    id: int
+    business_id: int
+    name: str
+    category: str
+    quantity: float
+    unit: str
+    min_stock: float
+    price: float
+    supplier: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
