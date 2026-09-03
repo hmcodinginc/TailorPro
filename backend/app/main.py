@@ -26,8 +26,17 @@ app = FastAPI()
 # STEP 2: Mount uploads folder
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# STEP 3: Create DB tables
+# STEP 3: Create DB tables & run additive schema migrations
 models.Base.metadata.create_all(bind=engine)
+import sys
+backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if backend_root not in sys.path:
+    sys.path.insert(0, backend_root)
+import migrate_db
+migrate_db.migrate()
+
+
+
 
 # STEP 4: CORS
 default_cors_origins = [
