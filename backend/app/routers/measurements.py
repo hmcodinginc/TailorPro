@@ -147,6 +147,12 @@ def delete_measurement(
     if not m:
         raise HTTPException(status_code=404, detail="Measurement not found")
 
+    if m.image and os.path.exists(m.image):
+        try:
+            os.remove(m.image)
+        except Exception:
+            pass
+
     db.delete(m)
     db.commit()
-    return {"message": "Measurement deleted successfully"}
+    return {"message": "Measurement deleted successfully"}

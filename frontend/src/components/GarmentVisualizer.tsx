@@ -1,120 +1,159 @@
-import { getGarmentMeasurementMap, MeasurementLine } from "../config/garmentMeasurementMap"
-import { KurtaVisualSVG } from "../garments/KurtaVisual"
-import { TopVisualSVG, BottomVisualSVG, DressVisualSVG, SkirtVisualSVG, BlouseVisualSVG } from "../garments/OtherVisuals"
+import React, { useState } from "react"
+import {
+  getGarmentVisualConfig,
+  normalizeGender,
+  getMeasurementImageUrl,
+  GarmentVisualConfig,
+} from "../config/garmentMeasurementMap"
+import { Badge } from "@/components/ui/badge"
+import { Sparkles, Info } from "lucide-react"
 
-interface GarmentVisualizerProps {
+export interface GarmentVisualizerProps {
+  gender?: string
   garmentType: string
   activeField: string | null
-  fieldValues: Record<string, string>
+  fieldValues: Record<string, any>
+  customImageSrc?: string
   hideHelperText?: boolean
 }
 
-export function GarmentVisualizer({ garmentType, activeField, fieldValues, hideHelperText = false }: GarmentVisualizerProps) {
-  const measurementMap = getGarmentMeasurementMap(garmentType)
+export function GarmentVisualizer({
+  gender = "Men",
+  garmentType,
+  activeField,
+  fieldValues,
+  customImageSrc,
+  hideHelperText = false,
+}: GarmentVisualizerProps) {
+  const [imageError, setImageError] = useState(false)
+  const normalizedGender = normalizeGender(gender)
+  const config: GarmentVisualConfig = getGarmentVisualConfig(normalizedGender, garmentType)
+  const measurementMap = config.lines
 
-  
-  if (!measurementMap) {
-    return null
-  }
-
-  // Render specific garment SVG base
-  const renderGarmentBase = () => {
-    switch (garmentType) {
-      case "Kurta": return <KurtaVisualSVG />
-      case "Shirt":
-      case "Top":
-      case "Blazer":
-      case "NehruJacket":
-      case "Sherwani":
-      case "IndoWestern":
-      case "Suit":
-        return <TopVisualSVG />
-      case "Pant":
-      case "Pyjama":
-      case "Palazzo":
-      case "Salwar":
-      case "Chudidhar":
-      case "Leggings":
-      case "Dhoti":
-        return <BottomVisualSVG />
-      case "Gown":
-      case "Anarkali":
-        return <DressVisualSVG />
-      case "Lehenga":
-        return <SkirtVisualSVG />
-      case "SareeBlouse":
-        return <BlouseVisualSVG />
-      default:
-        return null
-    }
-  }
+  const expectedImageUrl = customImageSrc || config.imageSrc || getMeasurementImageUrl(normalizedGender, garmentType)
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-muted/10 rounded-xl border">
-      <svg
-        viewBox="0 0 400 600"
-        className="w-full max-w-[300px] h-auto drop-shadow-sm"
-      >
-        {/* Base Garment */}
-        {renderGarmentBase()}
+    <div className="w-full h-full min-h-[320px] flex flex-col items-center justify-between p-4 bg-muted/15 rounded-xl border border-border shadow-xs transition-all">
+      {/* Header Info: Gender & Garment Spec Title */}
+      <div className="w-full flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border/60">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-xs font-semibold text-foreground truncate">
+            {config.title || `${normalizedGender} ${garmentType}`}
+          </span>
+        </div>
+        <Badge
+          variant="outline"
+          className={
+            normalizedGender === "Women"
+              ? "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/50 dark:text-pink-300 dark:border-pink-800 text-[10px] py-0 px-2 shrink-0"
+              : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 text-[10px] py-0 px-2 shrink-0"
+          }
+        >
+          {normalizedGender === "Women" ? "Women 👩" : "Men 👨"}
+        </Badge>
+      </div>
 
-        {/* Measurement Lines and Labels */}
-        {Object.entries(measurementMap).map(([fieldKey, line]) => {
-          const value = fieldValues[fieldKey]
-          const isActive = activeField === fieldKey
-          const hasValue = value !== undefined && value !== null && String(value).trim() !== ""
+      {/* Center Visual Diagram (SVG with Live Measurement Overlays) */}
+      <div className="relative w-full flex-1 flex items-center justify-center min-h-[260px] py-1">
+        {/* Optional Custom Image if available and not errored */}
+        {customImageSrc && !imageError ? (
+          <div className="relative max-h-[300px] flex items-center justify-center">
+            <img
+              src={expectedImageUrl}
+              alt={`${normalizedGender} ${garmentType} Measurement Diagram`}
+              onError={() => setImageError(true)}
+              className="max-h-[280px] w-auto object-contain rounded-lg drop-shadow-sm"
+            />
+          </div>
+        ) : (
+          <svg
+            viewBox="0 0 400 600"
+            className="w-full max-w-[280px] h-auto max-h-[340px] drop-shadow-xs select-none transition-all duration-300"
+          >
+            {/* Dynamic Gender & Garment Vector Base */}
+            {config.renderSVG ? config.renderSVG() : null}
 
-          // Only show if active OR if it has a value
-          if (!isActive && !hasValue) return null
+            {/* Measurement Lines and Live Value Badges */}
+            {Object.entries(measurementMap).map(([fieldKey, line]) => {
+              const value = fieldValues ? fieldValues[fieldKey] : undefined
+              const isActive = activeField === fieldKey
+              const hasValue = value !== undefined && value !== null && String(value).trim() !== ""
 
-          const strokeColor = isActive ? "#ef4444" : "#94a3b8"
-          const strokeWidth = isActive ? 3 : 2
-          const textColor = isActive ? "#ef4444" : "#64748b"
-          const fontWeight = isActive ? "bold" : "normal"
-          const displayValue = value ? `${value}"` : "?"
+              // Highlight line when actively being focused or when user entered a value
+              if (!isActive && !hasValue) return null
 
-          return (
-            <g key={fieldKey} className="transition-all duration-300">
-              {/* The Line */}
-              <line
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                strokeDasharray="4 2"
-              />
-              
-              {/* Optional End Caps */}
-              <circle cx={line.x1} cy={line.y1} r="3" fill={strokeColor} />
-              <circle cx={line.x2} cy={line.y2} r="3" fill={strokeColor} />
+              const strokeColor = isActive ? "#ef4444" : "#4f46e5"
+              const strokeWidth = isActive ? 3 : 2
+              const textColor = isActive ? "#b91c1c" : "#3730a3"
+              const bgColor = isActive ? "#fee2e2" : "#e0e7ff"
+              const fontWeight = isActive ? "bold" : "600"
+              const displayValue = hasValue ? `${value}"` : "?"
 
-              {/* The Label/Value Container */}
-              <text
-                x={line.labelX}
-                y={line.labelY}
-                textAnchor={line.align === "left" ? "start" : line.align === "right" ? "end" : "middle"}
-                fill={textColor}
-                fontSize={isActive ? "18" : "14"}
-                fontWeight={fontWeight}
-                className="select-none"
-              >
-                {displayValue}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
+              return (
+                <g key={fieldKey} className="transition-all duration-300">
+                  {/* Guideline connecting points */}
+                  <line
+                    x1={line.x1}
+                    y1={line.y1}
+                    x2={line.x2}
+                    y2={line.y2}
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={isActive ? "none" : "4 2"}
+                  />
+
+                  {/* Endcap Dots */}
+                  <circle cx={line.x1} cy={line.y1} r={isActive ? 4 : 3} fill={strokeColor} />
+                  <circle cx={line.x2} cy={line.y2} r={isActive ? 4 : 3} fill={strokeColor} />
+
+                  {/* Value callout pill container */}
+                  <rect
+                    x={line.labelX - (displayValue.length > 3 ? 24 : 18)}
+                    y={line.labelY - 14}
+                    width={displayValue.length > 3 ? 48 : 36}
+                    height={20}
+                    rx={10}
+                    fill={bgColor}
+                    stroke={strokeColor}
+                    strokeWidth={1.5}
+                    className="drop-shadow-xs"
+                  />
+
+                  {/* Value Text */}
+                  <text
+                    x={line.labelX}
+                    y={line.labelY + 1}
+                    textAnchor="middle"
+                    fill={textColor}
+                    fontSize={isActive ? "13" : "11"}
+                    fontWeight={fontWeight}
+                    className="select-none font-mono"
+                  >
+                    {displayValue}
+                  </text>
+                </g>
+              )
+            })}
+          </svg>
+        )}
+      </div>
+
+      {/* Footer Helper Note */}
       {!hideHelperText && (
-        <div className="text-center mt-4">
-          <p className="text-xs text-muted-foreground">
+        <div className="text-center mt-2 pt-2 border-t border-border/40 w-full">
+          <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
             {activeField ? (
               <>
-                Enter <strong className="text-foreground">{measurementMap[activeField]?.label || activeField}</strong>
+                <Sparkles className="h-3 w-3 text-red-500 animate-pulse shrink-0" />
+                <span>
+                  Enter <strong className="text-foreground">{measurementMap[activeField]?.label || activeField}</strong>
+                </span>
               </>
             ) : (
-              "Select a measurement field"
+              <>
+                <Info className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span>Select or type in any measurement field to highlight</span>
+              </>
             )}
           </p>
         </div>

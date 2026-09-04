@@ -278,7 +278,7 @@ function MeasurementForm({
           </div>
           
           <div className="rounded-lg min-h-[300px]">
-            <GarmentVisualizer garmentType={form.garment_type} activeField={activeField} fieldValues={form} />
+            <GarmentVisualizer gender={activeGender} garmentType={form.garment_type} activeField={activeField} fieldValues={form} />
           </div>
         </div>
       )}
@@ -779,6 +779,7 @@ export default function Measurements() {
                 {/* Visualizer */}
                 <div className="bg-slate-50 border rounded-lg p-4 min-h-[400px] flex items-center justify-center">
                   <GarmentVisualizer 
+                    gender={previewData.m.gender || "Men"}
                     garmentType={previewData.m.garment_type} 
                     activeField={null} 
                     fieldValues={previewData.m} 

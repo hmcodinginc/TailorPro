@@ -12,6 +12,36 @@ export interface GarmentTemplate {
 }
 
 export const MEN_GARMENTS: Record<string, GarmentTemplate> = {
+  Shirt: {
+    key: "Shirt",
+    label: "Shirt",
+    emoji: "👔",
+    gender: "Men",
+    fields: [
+      { key: "chest", label: "Chest Round" },
+      { key: "waist", label: "Waist Round" },
+      { key: "hip", label: "Hip Round" },
+      { key: "shoulder", label: "Shoulder Width" },
+      { key: "sleeve_length", label: "Sleeve Length" },
+      { key: "sleeve_round", label: "Sleeve Round / Cuff" },
+      { key: "collar", label: "Collar / Neck Size" },
+      { key: "length", label: "Shirt Length" },
+    ],
+  },
+  TShirt: {
+    key: "TShirt",
+    label: "T-Shirt / Polo",
+    emoji: "👕",
+    gender: "Men",
+    fields: [
+      { key: "chest", label: "Chest Round" },
+      { key: "waist", label: "Waist Round" },
+      { key: "shoulder", label: "Shoulder Width" },
+      { key: "sleeve_length", label: "Sleeve Length" },
+      { key: "collar", label: "Neck Round" },
+      { key: "length", label: "T-Shirt Length" },
+    ],
+  },
   Pant: {
     key: "Pant",
     label: "Pant / Trouser",
@@ -27,22 +57,6 @@ export const MEN_GARMENTS: Record<string, GarmentTemplate> = {
       { key: "length", label: "Total Length (Outseam)" },
       { key: "inseam", label: "Inseam Length" },
       { key: "rise", label: "Rise (Crotch Depth)" },
-    ],
-  },
-  Shirt: {
-    key: "Shirt",
-    label: "Shirt",
-    emoji: "👔",
-    gender: "Men",
-    fields: [
-      { key: "chest", label: "Chest Round" },
-      { key: "waist", label: "Waist Round" },
-      { key: "hip", label: "Hip Round" },
-      { key: "shoulder", label: "Shoulder Width" },
-      { key: "sleeve_length", label: "Sleeve Length" },
-      { key: "sleeve_round", label: "Sleeve Round / Cuff" },
-      { key: "collar", label: "Collar / Neck Size" },
-      { key: "length", label: "Shirt Length" },
     ],
   },
   Kurta: {
@@ -178,6 +192,49 @@ export const MEN_GARMENTS: Record<string, GarmentTemplate> = {
 }
 
 export const WOMEN_GARMENTS: Record<string, GarmentTemplate> = {
+  Shirt: {
+    key: "Shirt",
+    label: "Shirt / Button-Down",
+    emoji: "👚",
+    gender: "Women",
+    fields: [
+      { key: "bust", label: "Bust / Chest" },
+      { key: "waist", label: "Waist Round" },
+      { key: "hip", label: "Hip Round" },
+      { key: "shoulder", label: "Shoulder Width" },
+      { key: "sleeve_length", label: "Sleeve Length" },
+      { key: "sleeve_round", label: "Sleeve Round / Cuff" },
+      { key: "collar", label: "Collar / Neck Size" },
+      { key: "length", label: "Shirt Length" },
+    ],
+  },
+  Top: {
+    key: "Top",
+    label: "Top / Blouse",
+    emoji: "👚",
+    gender: "Women",
+    fields: [
+      { key: "bust", label: "Bust Round" },
+      { key: "waist", label: "Waist Round" },
+      { key: "hip", label: "Hip Round" },
+      { key: "shoulder", label: "Shoulder Width" },
+      { key: "sleeve_length", label: "Sleeve Length" },
+      { key: "length", label: "Top Length" },
+    ],
+  },
+  TShirt: {
+    key: "TShirt",
+    label: "T-Shirt / Tee",
+    emoji: "👕",
+    gender: "Women",
+    fields: [
+      { key: "bust", label: "Bust Round" },
+      { key: "waist", label: "Waist Round" },
+      { key: "shoulder", label: "Shoulder Width" },
+      { key: "sleeve_length", label: "Sleeve Length" },
+      { key: "length", label: "T-Shirt Length" },
+    ],
+  },
   Kurta: {
     key: "Kurta",
     label: "Kurta / Kurti",
@@ -212,6 +269,19 @@ export const WOMEN_GARMENTS: Record<string, GarmentTemplate> = {
       { key: "rise", label: "Rise (Crotch Depth)" },
     ],
   },
+  Salwar: {
+    key: "Salwar",
+    label: "Salwar / Patiala",
+    emoji: "👖",
+    gender: "Women",
+    fields: [
+      { key: "waist", label: "Waist Round" },
+      { key: "hip", label: "Hip Round" },
+      { key: "length", label: "Salwar Length" },
+      { key: "ankle", label: "Bottom Mohri Round" },
+      { key: "rise", label: "Rise / Crotch Depth" },
+    ],
+  },
   Palazzo: {
     key: "Palazzo",
     label: "Palazzo / Plazo",
@@ -224,6 +294,56 @@ export const WOMEN_GARMENTS: Record<string, GarmentTemplate> = {
       { key: "length", label: "Palazzo Length" },
       { key: "bottom_width", label: "Bottom Flare Width" },
       { key: "rise", label: "Rise" },
+    ],
+  },
+  Blazer: {
+    key: "Blazer",
+    label: "Blazer / Coat",
+    emoji: "🧥",
+    gender: "Women",
+    fields: [
+      { key: "bust", label: "Bust Round" },
+      { key: "waist", label: "Waist Round" },
+      { key: "hip", label: "Hip Round" },
+      { key: "shoulder", label: "Shoulder Width" },
+      { key: "armhole", label: "Armhole Round" },
+      { key: "sleeve_length", label: "Sleeve Length" },
+      { key: "length", label: "Coat Length" },
+      { key: "collar", label: "Neck / Lapel Size" },
+    ],
+  },
+  Suit: {
+    key: "Suit",
+    label: "Pant Suit / 2-Piece Suit",
+    emoji: "🤵‍♀️",
+    gender: "Women",
+    fields: [
+      { key: "bust", label: "Blazer Bust" },
+      { key: "waist", label: "Waist Round" },
+      { key: "hip", label: "Hip Round" },
+      { key: "shoulder", label: "Shoulder Width" },
+      { key: "sleeve_length", label: "Sleeve Length" },
+      { key: "length", label: "Blazer Length" },
+      { key: "thigh", label: "Trouser Thigh" },
+      { key: "ankle", label: "Trouser Ankle Round" },
+      { key: "inseam", label: "Trouser Inseam" },
+      { key: "rise", label: "Trouser Rise" },
+    ],
+  },
+  Dress: {
+    key: "Dress",
+    label: "Dress / One-Piece",
+    emoji: "👗",
+    gender: "Women",
+    fields: [
+      { key: "bust", label: "Bust Round" },
+      { key: "waist", label: "Waist Round" },
+      { key: "hip", label: "Hip Round" },
+      { key: "shoulder", label: "Shoulder Width" },
+      { key: "sleeve_length", label: "Sleeve Length" },
+      { key: "length", label: "Dress Length" },
+      { key: "flare", label: "Flare / Ghera" },
+      { key: "neck_depth", label: "Neck Depth" },
     ],
   },
   Gown: {
@@ -289,19 +409,6 @@ export const WOMEN_GARMENTS: Record<string, GarmentTemplate> = {
       { key: "neck_width", label: "Back Neck Depth" },
     ],
   },
-  Salwar: {
-    key: "Salwar",
-    label: "Salwar / Patiala",
-    emoji: "👖",
-    gender: "Women",
-    fields: [
-      { key: "waist", label: "Waist Round" },
-      { key: "hip", label: "Hip Round" },
-      { key: "length", label: "Salwar Length" },
-      { key: "ankle", label: "Bottom Mohri Round" },
-      { key: "rise", label: "Rise / Crotch Depth" },
-    ],
-  },
   Chudidhar: {
     key: "Chudidhar",
     label: "Chudidhar",
@@ -328,20 +435,6 @@ export const WOMEN_GARMENTS: Record<string, GarmentTemplate> = {
       { key: "thigh", label: "Thigh Round" },
       { key: "length", label: "Length" },
       { key: "ankle", label: "Ankle Round" },
-    ],
-  },
-  Top: {
-    key: "Top",
-    label: "Top / Western Shirt",
-    emoji: "👔",
-    gender: "Women",
-    fields: [
-      { key: "bust", label: "Bust Round" },
-      { key: "waist", label: "Waist Round" },
-      { key: "hip", label: "Hip Round" },
-      { key: "shoulder", label: "Shoulder Width" },
-      { key: "sleeve_length", label: "Sleeve Length" },
-      { key: "length", label: "Top Length" },
     ],
   },
 }
@@ -390,18 +483,55 @@ export function garmentsMatch(g1: string | null | undefined, g2: string | null |
   return normalizeGarmentKey(g1) === normalizeGarmentKey(g2)
 }
 
-export function getGarmentsByGender(gender: "Men" | "Women"): Record<string, GarmentTemplate> {
-  return gender === "Men" ? MEN_GARMENTS : WOMEN_GARMENTS
+export function getGarmentsByGender(gender: "Men" | "Women" | string): Record<string, GarmentTemplate> {
+  const norm = (gender || "").toLowerCase()
+  return norm.includes("women") || norm === "female" ? WOMEN_GARMENTS : MEN_GARMENTS
 }
 
 export function findGarmentTemplate(garmentKey: string, genderHint?: string): GarmentTemplate | null {
   if (!garmentKey) return null
+  
+  const normGender = (genderHint || "").toLowerCase().trim()
+  const isWomen = normGender.startsWith("women") || normGender.includes("female") || normGender === "f" || normGender === "women"
+  const isMen = !isWomen && (normGender.startsWith("men") || normGender.includes("male") || normGender === "m" || normGender === "men")
+
+  const primaryMap = isWomen ? WOMEN_GARMENTS : isMen ? MEN_GARMENTS : MEN_GARMENTS
+  const secondaryMap = isWomen ? MEN_GARMENTS : WOMEN_GARMENTS
+
+  // 1. Direct match in primary gender map
+  if (primaryMap && primaryMap[garmentKey]) {
+    return primaryMap[garmentKey]
+  }
+
+  // 2. Case-insensitive key or label search in primary map
+  if (primaryMap) {
+    const keyLower = garmentKey.toLowerCase()
+    const foundPrimary = Object.values(primaryMap).find(
+      (t) => t.key.toLowerCase() === keyLower || t.label.toLowerCase().includes(keyLower) || keyLower.includes(t.key.toLowerCase())
+    )
+    if (foundPrimary) return foundPrimary
+  }
+
+  // 3. Fallback to secondary gender map
+  if (secondaryMap && secondaryMap[garmentKey]) {
+    return secondaryMap[garmentKey]
+  }
+
+  if (secondaryMap) {
+    const keyLower = garmentKey.toLowerCase()
+    const foundSecondary = Object.values(secondaryMap).find(
+      (t) => t.key.toLowerCase() === keyLower || t.label.toLowerCase().includes(keyLower) || keyLower.includes(t.key.toLowerCase())
+    )
+    if (foundSecondary) return foundSecondary
+  }
+
+  // 4. Fallback to ALL_GARMENTS
   if (ALL_GARMENTS[garmentKey]) return ALL_GARMENTS[garmentKey]
 
   const keyLower = garmentKey.toLowerCase()
-  const foundKey = Object.keys(ALL_GARMENTS).find(
-    (k) => k.toLowerCase() === keyLower || ALL_GARMENTS[k].label.toLowerCase().includes(keyLower)
+  const foundInAll = Object.values(ALL_GARMENTS).find(
+    (t) => t.key.toLowerCase() === keyLower || t.label.toLowerCase().includes(keyLower)
   )
-  return foundKey ? ALL_GARMENTS[foundKey] : null
+  return foundInAll || null
 }
 
