@@ -122,5 +122,27 @@ export const createInvoice = addInvoice
 export const updateInvoice = (id: number, data: unknown) =>
   request(`/invoices/${id}`, { method: "PUT", body: jsonBody(data) })
 
+// USER PROFILE
+export const getUserProfile = () => request("/auth/me")
+export const updateUserProfile = (data: { name?: string; phone?: string }) =>
+  request("/auth/me", { method: "PUT", body: jsonBody(data) })
+
+// INVENTORY
+export const getInventoryItems = () => request("/inventory/")
+export const addInventoryItem = (data: unknown) =>
+  request("/inventory/", { method: "POST", body: jsonBody(data) })
+export const updateInventoryItem = (id: number, data: unknown) =>
+  request(`/inventory/${id}`, { method: "PUT", body: jsonBody(data) })
+export const deleteInventoryItem = (id: number) =>
+  request(`/inventory/${id}`, { method: "DELETE" })
+
 export const deleteInvoice = (id: number) =>
   request(`/invoices/${id}`, { method: "DELETE" })
+
+export const recordInvoicePayment = (invoiceId: number, data: unknown) =>
+  request(`/invoices/${invoiceId}/payments`, { method: "POST", body: jsonBody(data) })
+
+export const deleteInvoicePayment = (invoiceId: number, paymentId: number) =>
+  request(`/invoices/${invoiceId}/payments/${paymentId}`, { method: "DELETE" })
+
+

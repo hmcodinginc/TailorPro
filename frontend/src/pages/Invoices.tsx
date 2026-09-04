@@ -1,102 +1,103 @@
 import { useState } from "react";
-import { Plus, FileText, Pencil, Trash2, Search, Download, Printer } from "lucide-react";
+import {
+  Plus, FileText, Pencil, Trash2, Search, Download, Printer, CreditCard, DollarSign, Calendar, ChevronRight, History
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Dialog, DialogContent, DialogHeader,
-  DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem,
-  SelectTrigger, SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell,
-  TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getInvoices, addInvoice, updateInvoice, deleteInvoice, getCustomers, getOrders, getBusinessProfile } from "@/lib/api";
+import {
+  getInvoices, addInvoice, updateInvoice, deleteInvoice, getCustomers, getOrders, getBusinessProfile,
+  recordInvoicePayment, deleteInvoicePayment
+} from "@/lib/api";
+import { generateInvoicePDF } from "@/lib/invoicePdf";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
 
-type Customer = any
-type Order = any
+type Customer = any;
+type Order = any;
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+type InvoiceStatus = "pending" | "paid" | "unpaid";
+type PaymentType = "cash" | "online";
 
-type InvoiceStatus  = "pending" | "paid" | "unpaid";
-type PaymentType    = "cash" | "online";
+interface PaymentRecord {
+  id: number;
+  invoice_id: number;
+  customer_id: number;
+  order_id?: number;
+  amount: number;
+  payment_type: string;
+  reference?: string;
+  notes?: string;
+  payment_date: string;
+  created_at: string;
+}
 
 interface Invoice {
-  id:           number;
-  customer_id:  number;
-  order_id:     number;
-  amount:       number;
-  status:       InvoiceStatus;
+  id: number;
+  invoice_number?: string;
+  customer_id: number;
+  order_id: number;
+  amount: number;
+  status: InvoiceStatus;
   payment_type: PaymentType;
-  notes?:       string;
-  created_at:   string;
-  isDownloading?: boolean;
+  notes?: string;
+  created_at: string;
+  paid_amount?: number;
+  remaining_amount?: number;
+  payments?: PaymentRecord[];
 }
+
 
 interface IForm {
-  customer_id:  string;
-  order_id:     string;
-  amount:       string;
-  status:       InvoiceStatus;
+  customer_id: string;
+  order_id: string;
+  amount: string;
+  status: InvoiceStatus;
   payment_type: PaymentType;
-  notes:        string;
+  notes: string;
 }
 
-// ── Config ────────────────────────────────────────────────────────────────────
-
 const STATUS_STYLES: Record<InvoiceStatus, string> = {
-  pending: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  paid:    "bg-green-500/10  text-green-400  border-green-500/20",
-  unpaid:  "bg-red-500/10   text-red-400    border-red-500/20",
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  unpaid: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 const PAYMENT_STYLES: Record<PaymentType, string> = {
-  cash:   "bg-blue-500/10   text-blue-400   border-blue-500/20",
-  online: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-};
-
-const PAYMENT_ICONS: Record<PaymentType, string> = {
-  cash:   "💵",
-  online: "💳",
+  cash: "bg-blue-50 text-blue-700 border-blue-200",
+  online: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
 const emptyForm: IForm = {
-  customer_id:  "",
-  order_id:     "",
-  amount:       "",
-  status:       "pending",
+  customer_id: "",
+  order_id: "",
+  amount: "",
+  status: "pending",
   payment_type: "cash",
-  notes:        "",
+  notes: "",
 };
 
-// ── PDF Generator (no external lib needed) ────────────────────────────────────
-
-
-function handlePrint(invoice: Invoice, customer?: Customer, order?: Order) {
-  setPreviewInvoice(invoice);
-}
-
-
-// ── InvoiceDialog ─────────────────────────────────────────────────────────────
+// ── Invoice Creation / Edit Dialog ─────────────────────────────────────────────
 
 interface InvoiceDialogProps {
-  invoice?:  Invoice | null;
+  invoice?: Invoice | null;
   customers: Customer[];
-  orders:    Order[];
-  onClose:   () => void;
+  orders: Order[];
+  onClose: () => void;
 }
 
 function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogProps) {
@@ -105,20 +106,19 @@ function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogPro
   const [form, setForm] = useState<IForm>(
     invoice
       ? {
-          customer_id:  String(invoice.customer_id),
-          order_id:     String(invoice.order_id),
-          amount:       String(invoice.amount),
-          status:       invoice.status,
+          customer_id: String(invoice.customer_id),
+          order_id: String(invoice.order_id),
+          amount: String(invoice.amount),
+          status: invoice.status,
           payment_type: invoice.payment_type,
-          notes:        invoice.notes ?? "",
+          notes: invoice.notes ?? "",
         }
       : emptyForm
   );
 
-  const { toast }   = useToast();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Filter orders by selected customer
   const customerOrders = form.customer_id
     ? orders.filter((o) => o.customer_id === Number(form.customer_id))
     : orders;
@@ -126,19 +126,16 @@ function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogPro
   const mutation = useMutation({
     mutationFn: (data: IForm) => {
       const payload = {
-        customer_id:  Number(data.customer_id),
-        order_id:     Number(data.order_id),
-        amount:       Number(data.amount),
-        status:       data.status,
+        customer_id: Number(data.customer_id),
+        order_id: Number(data.order_id),
+        amount: Number(data.amount),
+        status: data.status,
         payment_type: data.payment_type,
-        notes:        data.notes || null,
+        notes: data.notes || null,
       };
       return editing
         ? updateInvoice(invoice!.id, payload)
         : addInvoice(payload);
-    },
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["invoices"] });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
@@ -150,36 +147,48 @@ function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogPro
   });
 
   return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); mutation.mutate(form); }}
-      className="space-y-4"
-    >
-      {/* Customer */}
-      <div className="space-y-2">
-        <Label>Customer *</Label>
+    <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(form); }} className="space-y-4">
+      <div className="space-y-1.5">
+        <Label className="text-sm font-semibold">Customer *</Label>
         <Select
           value={form.customer_id}
-          onValueChange={(v) =>
-            setForm((f) => ({ ...f, customer_id: v, order_id: "" }))
-          }
+          onValueChange={(v) => {
+            const custOrders = orders.filter((o) => o.customer_id === Number(v));
+            setForm((f) => ({
+              ...f,
+              customer_id: v,
+              order_id: custOrders.length > 0 ? String(custOrders[0].id) : "",
+              amount: custOrders.length > 0 ? String(custOrders[0].amount || "") : f.amount,
+            }));
+          }}
         >
-          <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className="rounded-xl">
+            <SelectValue placeholder="Select a customer" />
+          </SelectTrigger>
+          <SelectContent className="max-h-60">
             {customers.map((c) => (
-              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={String(c.id)}>
+                {c.name} {c.phone ? `(${c.phone})` : ""}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Order — filtered by customer */}
-      <div className="space-y-2">
-        <Label>Order *</Label>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-semibold">Order *</Label>
         <Select
           value={form.order_id}
-          onValueChange={(v) => setForm((f) => ({ ...f, order_id: v }))}
+          onValueChange={(v) => {
+            const selectedOrder = orders.find((o) => o.id === Number(v));
+            setForm((f) => ({
+              ...f,
+              order_id: v,
+              amount: selectedOrder ? String(selectedOrder.amount || "") : f.amount,
+            }));
+          }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="rounded-xl">
             <SelectValue
               placeholder={
                 form.customer_id
@@ -190,49 +199,38 @@ function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogPro
               }
             />
           </SelectTrigger>
-        
-      
-<SelectContent>
-
-{customerOrders.map((o) => (
-
-  <SelectItem
-    key={o.id}
-    value={String(o.id)}
-  >
-    {o.order_code} - ₹{o.amount}
-  </SelectItem>
-
-))}
+          <SelectContent className="max-h-60">
+            {customerOrders.map((o) => (
+              <SelectItem key={o.id} value={String(o.id)}>
+                {o.order_code || `Order #${o.id}`} - ₹{o.amount} ({o.description})
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Amount */}
-      <div className="space-y-2">
-        <Label>Amount (₹) *</Label>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-semibold">Total Amount (₹) *</Label>
         <Input
           type="number"
           min="0"
-          step="1"
+          step="any"
           placeholder="0"
+          className="rounded-xl"
           value={form.amount}
           onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
           required
         />
       </div>
 
-      {/* Payment Type + Status side by side */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label>Payment Type</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold">Payment Type</Label>
           <Select
             value={form.payment_type}
-            onValueChange={(v) =>
-              setForm((f) => ({ ...f, payment_type: v as PaymentType }))
-            }
+            onValueChange={(v) => setForm((f) => ({ ...f, payment_type: v as PaymentType }))}
           >
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="cash">💵 Cash</SelectItem>
               <SelectItem value="online">💳 Online</SelectItem>
@@ -240,15 +238,13 @@ function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogPro
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label>Status</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold">Status</Label>
           <Select
             value={form.status}
-            onValueChange={(v) =>
-              setForm((f) => ({ ...f, status: v as InvoiceStatus }))
-            }
+            onValueChange={(v) => setForm((f) => ({ ...f, status: v as InvoiceStatus }))}
           >
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="paid">Paid</SelectItem>
@@ -258,133 +254,311 @@ function InvoiceDialog({ invoice, customers, orders, onClose }: InvoiceDialogPro
         </div>
       </div>
 
-      {/* Notes */}
-      <div className="space-y-2">
-        <Label>Notes</Label>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-semibold">Notes</Label>
         <Input
-          placeholder="Optional notes…"
+          placeholder="Optional notes or terms…"
+          className="rounded-xl"
           value={form.notes}
           onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
         />
       </div>
 
-      {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="outline" className="rounded-xl" onClick={onClose}>Cancel</Button>
         <Button
           type="submit"
-          disabled={
-            mutation.isPending ||
-            !form.customer_id  ||
-            !form.order_id     ||
-            !form.amount
-          }
+          className="rounded-xl gradient-brand text-white"
+          disabled={mutation.isPending || !form.customer_id || !form.order_id || !form.amount}
         >
-          {mutation.isPending
-            ? "Saving…"
-            : editing ? "Update Invoice" : "Create Invoice"}
+          {mutation.isPending ? "Saving…" : editing ? "Update Invoice" : "Create Invoice"}
         </Button>
       </div>
     </form>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Record Payment Modal ───────────────────────────────────────────────────────
+
+interface PaymentDialogProps {
+  invoice: Invoice;
+  onClose: () => void;
+}
+
+function PaymentDialog({ invoice, onClose }: PaymentDialogProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const remaining = invoice.remaining_amount ?? Math.max(0, invoice.amount - (invoice.paid_amount || 0));
+
+  const [amount, setAmount] = useState(remaining > 0 ? String(remaining) : "");
+  const [paymentType, setPaymentType] = useState("cash");
+  const [reference, setReference] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const recordMutation = useMutation({
+    mutationFn: (data: any) => recordInvoicePayment(invoice.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      toast({ title: "Payment recorded successfully" });
+      onClose();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to record payment", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deletePayMutation = useMutation({
+    mutationFn: (paymentId: number) => deleteInvoicePayment(invoice.id, paymentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      toast({ title: "Payment record deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to delete payment", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = Number(amount);
+    if (!val || val <= 0) {
+      toast({ title: "Invalid amount", description: "Payment amount must be greater than 0.", variant: "destructive" });
+      return;
+    }
+    recordMutation.mutate({
+      amount: val,
+      payment_type: paymentType,
+      reference: reference.trim() || undefined,
+      notes: notes.trim() || undefined,
+    });
+  };
+
+  const payments = invoice.payments || [];
+
+  return (
+    <div className="space-y-5">
+      {/* Balances Banner */}
+      <div className="grid grid-cols-3 gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+        <div>
+          <p className="text-[11px] text-slate-500 font-medium">Invoice Total</p>
+          <p className="text-sm font-bold text-slate-900">₹{Number(invoice.amount).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-[11px] text-emerald-600 font-medium">Total Paid</p>
+          <p className="text-sm font-bold text-emerald-600">₹{Number(invoice.paid_amount || 0).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-[11px] text-rose-600 font-medium">Remaining</p>
+          <p className="text-sm font-bold text-rose-600">₹{Number(remaining).toLocaleString()}</p>
+        </div>
+      </div>
+
+      {/* Payment Form */}
+      <form onSubmit={handleSubmit} className="space-y-3.5 bg-white border border-slate-100 rounded-xl p-3.5 shadow-xs">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Record New Payment</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">Payment Amount (₹) *</Label>
+            <Input
+              type="number"
+              min="1"
+              step="any"
+              placeholder="e.g. 10000"
+              className="h-9 rounded-lg"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">Method</Label>
+            <Select value={paymentType} onValueChange={setPaymentType}>
+              <SelectTrigger className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">💵 Cash</SelectItem>
+                <SelectItem value="online">💳 Online / UPI</SelectItem>
+                <SelectItem value="card">💳 Card</SelectItem>
+                <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">Reference / Txn ID</Label>
+            <Input
+              placeholder="e.g. UPI Ref / Cheque #"
+              className="h-9 rounded-lg"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">Notes</Label>
+            <Input
+              placeholder="e.g. Advance deposit"
+              className="h-9 rounded-lg"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full h-9 rounded-lg gradient-brand text-white font-semibold text-xs"
+          disabled={recordMutation.isPending}
+        >
+          {recordMutation.isPending ? "Recording…" : "Save Payment Record"}
+        </Button>
+      </form>
+
+      {/* Payment History List */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+            <History className="h-3.5 w-3.5 text-slate-400" /> Payment History ({payments.length})
+          </h4>
+        </div>
+
+        {payments.length === 0 ? (
+          <p className="text-xs text-slate-400 py-3 text-center border border-dashed rounded-xl">
+            No payments recorded yet for this invoice.
+          </p>
+        ) : (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            {payments.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 text-xs"
+              >
+                <div>
+                  <p className="font-bold text-slate-800">
+                    ₹{Number(p.amount).toLocaleString()}
+                    <span className="ml-2 font-normal text-slate-500 uppercase text-[10px] bg-white border px-1.5 py-0.5 rounded">
+                      {p.payment_type}
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {p.payment_date ? format(new Date(p.payment_date), "MMM d, yyyy h:mm a") : "—"}
+                    {p.reference && ` • Ref: ${p.reference}`}
+                    {p.notes && ` • ${p.notes}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-all"
+                  onClick={() => {
+                    if (window.confirm(`Delete payment of ₹${p.amount}? Balance will recalculate.`)) {
+                      deletePayMutation.mutate(p.id);
+                    }
+                  }}
+                  title="Remove payment record"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end pt-2 border-t">
+        <Button variant="outline" className="rounded-xl" onClick={onClose}>Close</Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Invoices Component ────────────────────────────────────────────────────
 
 export default function Invoices() {
-  const [search, setSearch]       = useState("");
+  const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
-  const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
-  
-  const { data: business } = useQuery({ queryKey: ['business'], queryFn: getBusinessProfile });
+  const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
 
-  const { toast }                 = useToast();
-  const queryClient               = useQueryClient();
-
-  // ── Queries ───────────────────────────────────────────────────────────────
+  const { data: business } = useQuery({ queryKey: ["business"], queryFn: getBusinessProfile });
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["invoices"],
-    queryFn:  getInvoices,
+    queryFn: getInvoices,
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["customers"],
-    queryFn:  () => getCustomers(),
+    queryFn: getCustomers,
   });
 
   const { data: orders = [] } = useQuery<Order[]>({
     queryKey: ["orders"],
-    queryFn:  () => getOrders(),
+    queryFn: getOrders,
   });
-
-  // ── Delete ────────────────────────────────────────────────────────────────
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteInvoice(id),
-    onMutate: async (id: number) => {
-      await queryClient.cancelQueries({ queryKey: ["invoices"] });
-      const previous = queryClient.getQueryData<any[]>(["invoices"]) || [];
-      queryClient.setQueryData(["invoices"], previous.filter((inv) => inv.id !== id));
-      toast({ title: "Invoice deleted" });
-      return { previous };
-    },
-    onError: (err: Error, _id, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["invoices"], context.previous);
-      }
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      toast({ title: "Invoice deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
   const getCustomer = (id: number) => customers.find((c) => c.id === id);
-  const getOrder    = (id: number) => orders.find((o) => o.id === id);
+  const getOrder = (id: number) => orders.find((o) => o.id === id);
 
   const filtered = invoices.filter((inv) => {
     const name = getCustomer(inv.customer_id)?.name ?? "";
-    return name.toLowerCase().includes(search.toLowerCase());
+    const order = getOrder(inv.order_id);
+    const searchVal = search.toLowerCase();
+    return (
+      name.toLowerCase().includes(searchVal) ||
+      String(inv.id).includes(searchVal) ||
+      (inv.invoice_number && inv.invoice_number.toLowerCase().includes(searchVal)) ||
+      (order?.order_code && order.order_code.toLowerCase().includes(searchVal))
+    );
   });
 
-  // Totals for summary bar
-  const totalAmount = filtered.reduce((sum, i) => sum + i.amount, 0);
-  const paidAmount  = filtered
-    .filter((i) => i.status === "paid")
-    .reduce((sum, i) => sum + i.amount, 0);
-  const pendingAmt  = totalAmount - paidAmount;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // Calculate live persisted invoice totals
+  const totalAmount = filtered.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+  const totalPaid = filtered.reduce((sum, i) => sum + (Number(i.paid_amount) || 0), 0);
+  const totalRemaining = filtered.reduce((sum, i) => sum + (Number(i.remaining_amount) || 0), 0);
+
+  const handleDownloadPdf = (inv: Invoice) => {
+    const cust = getCustomer(inv.customer_id);
+    const ord = getOrder(inv.order_id);
+    generateInvoicePDF({ invoice: inv, customer: cust, order: ord, business });
+  };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="space-y-6 animate-fade-in"
+      className="space-y-6"
     >
-
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-bold">Invoices</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {filtered.length} invoice{filtered.length !== 1 ? "s" : ""}
+          <h1 className="text-xl font-bold text-gray-900">Invoices & Billing</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {filtered.length} invoice{filtered.length !== 1 ? "s" : ""} • Track advances, payments & outstanding balances
           </p>
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Invoice
+            <Button className="gradient-brand text-white shadow-brand-sm hover:opacity-90 gap-2">
+              <Plus className="h-4 w-4" /> New Invoice
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader><DialogTitle>Create Invoice</DialogTitle></DialogHeader>
             <InvoiceDialog
               customers={customers}
@@ -395,39 +569,55 @@ export default function Invoices() {
         </Dialog>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary KPI Cards */}
       <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Total",   value: totalAmount, color: "text-foreground" },
-          { label: "Paid",    value: paidAmount,  color: "text-green-400" },
-          { label: "Pending", value: pendingAmt,  color: "text-red-400" },
-        ].map(({ label, value, color }) => (
-          <Card key={label}>
-            <CardContent className="p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                {label}
-              </p>
-              <p className={`font-serif text-2xl font-bold ${color}`}>
-                ₹{value.toLocaleString()}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        <Card className="rounded-2xl border-gray-100 shadow-sm">
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+              Total Invoiced
+            </p>
+            <p className="text-2xl font-extrabold text-gray-900">
+              ₹{totalAmount.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-gray-100 shadow-sm">
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+              Total Paid
+            </p>
+            <p className="text-2xl font-extrabold text-emerald-600">
+              ₹{totalPaid.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-gray-100 shadow-sm">
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+              Remaining Balance
+            </p>
+            <p className="text-2xl font-extrabold text-rose-600">
+              ₹{totalRemaining.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
         <Input
-          placeholder="Search by customer…"
-          className="pl-9"
+          placeholder="Search by customer, invoice #, or order…"
+          className="pl-8 h-9 rounded-xl border-gray-200"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Table */}
-      <Card>
+      {/* Invoices Table */}
+      <Card className="rounded-2xl border-gray-100 shadow-sm overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="space-y-3 p-5">
@@ -438,119 +628,131 @@ export default function Invoices() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="font-semibold text-xs text-gray-500">Invoice</TableHead>
+                  <TableHead className="font-semibold text-xs text-gray-500">Customer</TableHead>
+                  <TableHead className="font-semibold text-xs text-gray-500">Order</TableHead>
+                  <TableHead className="font-semibold text-xs text-gray-500">Date</TableHead>
+                  <TableHead className="font-semibold text-xs text-gray-500 text-right">Total</TableHead>
+                  <TableHead className="font-semibold text-xs text-gray-500 text-right">Paid</TableHead>
+                  <TableHead className="font-semibold text-xs text-gray-500 text-right">Remaining</TableHead>
+                  <TableHead className="font-semibold text-xs text-gray-500 text-center">Status</TableHead>
+                  <TableHead className="font-semibold text-xs text-gray-500 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
 
               <TableBody>
                 {filtered.map((inv) => {
                   const customer = getCustomer(inv.customer_id);
-                  const order    = getOrder(inv.order_id);
+                  const order = getOrder(inv.order_id);
+                  const paid = inv.paid_amount ?? 0;
+                  const remaining = inv.remaining_amount ?? Math.max(0, inv.amount - paid);
 
                   return (
-                    <TableRow key={inv.id}>
+                    <TableRow key={inv.id} className="hover:bg-slate-50/50 transition-colors">
                       {/* Invoice # */}
                       <TableCell>
-                        <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-primary">
+                        <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-sky-600">
                           <FileText className="h-3.5 w-3.5" />
-                          #{inv.id}
+                          {inv.invoice_number || `INV-${String(inv.id).padStart(4, "0")}`}
                         </div>
                       </TableCell>
 
+
                       {/* Customer */}
-                      <TableCell className="font-medium text-foreground">
+                      <TableCell className="font-medium text-gray-900 text-sm">
                         {customer?.name ?? "—"}
                       </TableCell>
 
                       {/* Order */}
-                      <TableCell className="text-xs text-muted-foreground">
-                        {order?.order_number ?? `#${inv.order_id}`}
-                        {order && (
-                          <span className="ml-1 text-muted-foreground/60">
-                            {order.garment_type}
+                      <TableCell className="text-xs text-gray-500">
+                        {order?.order_code || `#${inv.order_id}`}
+                        {order?.description && (
+                          <span className="ml-1 text-gray-400 block truncate max-w-[140px]">
+                            {order.description}
                           </span>
                         )}
                       </TableCell>
 
                       {/* Date */}
-                      <TableCell className="text-xs">
-                        {format(new Date(inv.created_at), "MMM d, yyyy")}
+                      <TableCell className="text-xs text-gray-500">
+                        {inv.created_at ? format(new Date(inv.created_at), "MMM d, yyyy") : "—"}
                       </TableCell>
 
-                      {/* Payment type */}
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={PAYMENT_STYLES[inv.payment_type]}
-                        >
-                          {PAYMENT_ICONS[inv.payment_type]}{" "}
-                          {inv.payment_type === "cash" ? "Cash" : "Online"}
-                        </Badge>
+                      {/* Total Amount */}
+                      <TableCell className="text-right font-bold text-gray-900 text-sm">
+                        ₹{Number(inv.amount).toLocaleString()}
+                      </TableCell>
+
+                      {/* Paid Amount */}
+                      <TableCell className="text-right font-semibold text-emerald-600 text-sm">
+                        ₹{Number(paid).toLocaleString()}
+                      </TableCell>
+
+                      {/* Remaining Amount */}
+                      <TableCell className="text-right font-bold text-sm">
+                        <span className={remaining > 0 ? "text-rose-600" : "text-emerald-600"}>
+                          ₹{Number(remaining).toLocaleString()}
+                        </span>
                       </TableCell>
 
                       {/* Status */}
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={STATUS_STYLES[inv.status]}
-                        >
-                          {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className={`text-[10px] capitalize ${STATUS_STYLES[inv.status] || "bg-gray-100 text-gray-600"}`}>
+                          {remaining <= 0 ? "Paid in full" : inv.status}
                         </Badge>
-                      </TableCell>
-
-                      {/* Amount */}
-                      <TableCell className="text-right font-semibold text-foreground">
-                        ₹{inv.amount.toLocaleString()}
                       </TableCell>
 
                       {/* Actions */}
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
+                        <div className="flex justify-end items-center gap-1">
+                          {/* Record / View Payments */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2 rounded-lg gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                            onClick={() => setPaymentInvoice(inv)}
+                            title="Record payment / view history"
+                          >
+                            <DollarSign className="h-3.5 w-3.5" />
+                            <span>Payment</span>
+                          </Button>
+
+                          {/* Download PDF */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded-lg"
+                            onClick={() => handleDownloadPdf(inv)}
+                            title="Download invoice PDF"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+
                           {/* Edit */}
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
                             onClick={() => setEditInvoice(inv)}
+                            title="Edit invoice"
                           >
                             <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-
-                          {/* Download */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground"
-                            onClick={() =>
-                              setPreviewInvoice(inv)
-                            }
-                            title="Download invoice"
-                          >
-                            <Download className="h-3.5 w-3.5" />
                           </Button>
 
                           {/* Delete */}
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
                             onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Delete Invoice #${inv.id}? This cannot be undone.`
-                                )
-                              ) {
+                              const label = inv.invoice_number || `Invoice #${inv.id}`;
+                              if (window.confirm(`Delete ${label}? This will also delete payment history.`)) {
                                 deleteMutation.mutate(inv.id);
                               }
                             }}
+
+                            title="Delete invoice"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -562,16 +764,14 @@ export default function Invoices() {
 
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8}>
-                      <div className="flex flex-col items-center py-14 text-muted-foreground">
+                    <TableCell colSpan={9}>
+                      <div className="flex flex-col items-center py-14 text-gray-400">
                         <FileText className="mb-3 h-10 w-10 opacity-20" />
-                        <p className="font-medium">
-                          {search ? "No invoices match your search" : "No invoices yet"}
+                        <p className="font-medium text-sm">
+                          {search ? "No invoices match your search" : "No invoices created yet"}
                         </p>
-                        <p className="text-sm">
-                          {search
-                            ? "Try a different name"
-                            : "Create your first invoice above"}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {search ? "Try searching for a different customer name" : "Click 'New Invoice' above to bill a customer"}
                         </p>
                       </div>
                     </TableCell>
@@ -583,12 +783,9 @@ export default function Invoices() {
         </CardContent>
       </Card>
 
-      {/* Edit dialog */}
-      <Dialog
-        open={!!editInvoice}
-        onOpenChange={(open) => { if (!open) setEditInvoice(null); }}
-      >
-        <DialogContent className="max-w-md">
+      {/* Edit Invoice Dialog */}
+      <Dialog open={!!editInvoice} onOpenChange={(open) => { if (!open) setEditInvoice(null); }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Edit Invoice</DialogTitle></DialogHeader>
           {editInvoice && (
             <InvoiceDialog
@@ -601,202 +798,24 @@ export default function Invoices() {
         </DialogContent>
       </Dialog>
 
-      
-      
-      {/* Preview Dialog */}
-      <Dialog
-        open={!!previewInvoice}
-        onOpenChange={(open) => { if (!open) setPreviewInvoice(null); }}
-      >
-        <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto print:max-w-none print:w-full print:p-0 print:m-0 print:border-none print:shadow-none bg-gray-50 border-gray-200">
-          <DialogHeader className="print:hidden flex flex-row justify-between items-center w-full sticky top-0 bg-gray-50 z-10 pb-2">
-            <DialogTitle>Invoice Preview</DialogTitle>
+      {/* Record Payment & History Dialog */}
+      <Dialog open={!!paymentInvoice} onOpenChange={(open) => { if (!open) setPaymentInvoice(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <CreditCard className="h-4.5 w-4.5 text-emerald-600" />
+              Manage Payments — {paymentInvoice?.invoice_number || `Invoice #${paymentInvoice?.id}`}
+            </DialogTitle>
           </DialogHeader>
-          
-          <div className="overflow-auto max-h-[80vh] flex justify-center print:overflow-visible">
-          {previewInvoice && (() => {
-            const customer = getCustomer(previewInvoice.customer_id);
-            const order = getOrder(previewInvoice.order_id);
-            const isPaid = previewInvoice.status === 'paid';
-            const purpleColor = "#925488"; // Matches the Lilly's Closet theme
-            
-            return (
-              <div 
-                id="printable-invoice" 
-                className="bg-white text-black shadow-sm border print:border-none print:shadow-none mx-auto relative overflow-hidden flex flex-col font-sans"
-                style={{ width: '210mm', minHeight: '297mm', position: 'relative' }}
-              >
-                {/* Background Floral SVGs (approximations using simple curved paths) */}
-                <svg className="absolute top-0 left-0 w-72 h-72 opacity-10 pointer-events-none" style={{ color: purpleColor, transform: 'translate(-20%, -20%)' }} viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="1">
-                  <path d="M50 50 C 20 0, 0 20, 50 50 C 80 0, 100 20, 50 50 C 100 80, 80 100, 50 50 C 0 80, 20 100, 50 50" />
-                  <path d="M50 50 C 10 20, 10 80, 50 50 C 90 20, 90 80, 50 50 C 20 10, 80 10, 50 50 C 20 90, 80 90, 50 50" />
-                </svg>
-                <svg className="absolute bottom-10 right-0 w-96 h-96 opacity-10 pointer-events-none" style={{ color: purpleColor, transform: 'translate(20%, 20%)' }} viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="0.5">
-                  <path d="M50 50 C 20 0, 0 20, 50 50 C 80 0, 100 20, 50 50 C 100 80, 80 100, 50 50 C 0 80, 20 100, 50 50" />
-                  <path d="M50 50 C 10 20, 10 80, 50 50 C 90 20, 90 80, 50 50 C 20 10, 80 10, 50 50 C 20 90, 80 90, 50 50" />
-                </svg>
 
-                <div className="flex-1 p-14 relative z-10 pt-16">
-                  {/* Header */}
-                  <div className="flex justify-end items-start mb-20">
-                    <div className="text-right">
-                      <h1 className="text-5xl font-[cursive] mb-1" style={{ color: purpleColor, fontFamily: "'Brush Script MT', 'Comic Sans MS', cursive" }}>{business?.name || "Tailor Studio"}</h1>
-                      <h2 className="text-2xl font-bold tracking-[0.2em] uppercase" style={{ color: '#63395b' }}>INVOICE</h2>
-                    </div>
-                  </div>
-
-                  {/* Info Grid */}
-                  <div className="grid grid-cols-2 gap-8 mb-12">
-                    <div>
-                      <div className="font-bold text-sm uppercase mb-3" style={{ color: purpleColor }}>BILL TO:</div>
-                      <div className="text-gray-700 text-sm space-y-1.5">
-                        <div className="font-bold text-gray-900">{customer?.name}</div>
-                        {customer?.address && <div>{customer.address}</div>}
-                        {customer?.phone && <div>{customer.phone}</div>}
-                        {customer?.email && <div>{customer.email}</div>}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3 w-3/4 ml-auto">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-bold uppercase text-xs tracking-wider" style={{ color: purpleColor }}>INVOICE #:</span>
-                        <span className="text-gray-600">{previewInvoice.id.toString().padStart(4, '0')}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="font-bold uppercase text-xs tracking-wider" style={{ color: purpleColor }}>Issue Date:</span>
-                        <span className="text-gray-600">{format(new Date(previewInvoice.created_at), 'MM/dd/yyyy')}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="font-bold uppercase text-xs tracking-wider" style={{ color: purpleColor }}>Due Date:</span>
-                        <span className="text-gray-600">{order?.due_date ? format(new Date(order.due_date), 'MM/dd/yyyy') : format(new Date(previewInvoice.created_at), 'MM/dd/yyyy')}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Items Table */}
-                  <table className="w-full mb-16 border-collapse">
-                    <thead>
-                      <tr className="text-xs uppercase tracking-wider">
-                        <th className="p-3 border border-gray-400 text-left font-bold" style={{ color: purpleColor }}>Description</th>
-                        <th className="p-3 border border-gray-400 text-center font-bold w-20" style={{ color: purpleColor }}>QTY</th>
-                        <th className="p-3 border border-gray-400 text-center font-bold w-32" style={{ color: purpleColor }}>Price</th>
-                        <th className="p-3 border border-gray-400 text-center font-bold w-32" style={{ color: purpleColor }}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm text-gray-700">
-                      <tr className="h-10">
-                        <td className="p-3 border border-gray-400">
-                          {order?.description || "Custom Tailoring Service"}
-                          {order?.garment_type && ` - ${order.garment_type}`}
-                        </td>
-                        <td className="p-3 border border-gray-400 text-center font-medium">1</td>
-                        <td className="p-3 border border-gray-400 text-center font-medium">₹{previewInvoice.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                        <td className="p-3 border border-gray-400 text-center font-medium">₹{previewInvoice.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                      </tr>
-                      {/* Empty rows to match style */}
-                      <tr className="h-10"><td className="border border-gray-400"></td><td className="border border-gray-400"></td><td className="border border-gray-400"></td><td className="border border-gray-400"></td></tr>
-                      <tr className="h-10"><td className="border border-gray-400"></td><td className="border border-gray-400"></td><td className="border border-gray-400"></td><td className="border border-gray-400"></td></tr>
-                      <tr className="h-10"><td className="border border-gray-400"></td><td className="border border-gray-400"></td><td className="border border-gray-400"></td><td className="border border-gray-400"></td></tr>
-                    </tbody>
-                  </table>
-
-                  {/* Payment & Totals */}
-                  <div className="grid grid-cols-2 gap-8">
-                    <div>
-                      <div className="font-bold text-sm uppercase mb-4" style={{ color: purpleColor }}>PAYMENT INFORMATION:</div>
-                      <div className="text-gray-700 text-sm space-y-2">
-                        {business?.gst_number && <div><span className="font-bold text-gray-900">GST:</span> {business.gst_number}</div>}
-                        <div><span className="font-bold text-gray-900">Payment Method:</span> <span className="capitalize">{previewInvoice.payment_type}</span></div>
-                        <div><span className="font-bold text-gray-900">Status:</span> <span className="uppercase">{previewInvoice.status}</span></div>
-                        {previewInvoice.notes && <div className="mt-2 text-gray-500 italic">{previewInvoice.notes}</div>}
-                      </div>
-                    </div>
-                    <div className="space-y-3 w-3/4 ml-auto">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-bold uppercase text-xs tracking-wider" style={{ color: purpleColor }}>Subtotal</span>
-                        <span className="text-gray-800 font-medium">₹{previewInvoice.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="font-bold uppercase text-xs tracking-wider" style={{ color: purpleColor }}>Tax</span>
-                        <span className="text-gray-800 font-medium">0%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="font-bold uppercase text-xs tracking-wider" style={{ color: purpleColor }}>Deposit</span>
-                        <span className="text-gray-800 font-medium">{isPaid ? `₹${previewInvoice.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}` : '0'}</span>
-                      </div>
-                      <div className="flex justify-between text-sm mt-2 pt-2 border-t border-gray-200">
-                        <span className="font-bold uppercase text-xs tracking-wider" style={{ color: purpleColor }}>Balance</span>
-                        <span className="text-gray-800 font-bold">₹{isPaid ? "0.00" : previewInvoice.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Bar */}
-                <div className="py-5 px-14 flex justify-between text-xs w-full mt-auto relative z-10 text-white" style={{ backgroundColor: '#ad679f' }}>
-                  <div>{business?.email || "tailor@example.com"}</div>
-                  <div>www.tailorpro.com</div>
-                  <div>{business?.phone || "(555) 555-5555"}</div>
-                </div>
-              </div>
-            );
-          })()}
-          </div>
-          
-          {/* Sticky Bottom Action Bar */}
-          <div className="sticky bottom-0 left-0 right-0 p-4 bg-white border-t flex justify-end gap-3 rounded-b-lg shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
-            <Button 
-              variant="outline" 
-              onClick={() => setPreviewInvoice(null)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="outline"
-              className="gap-2"
-              onClick={() => window.print()}
-            >
-              <Printer className="w-4 h-4" /> Print
-            </Button>
-            <Button 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md"
-              disabled={previewInvoice?.isDownloading}
-              onClick={async () => {
-                try {
-                  setPreviewInvoice(prev => prev ? { ...prev, isDownloading: true } : prev);
-                  const element = document.getElementById('printable-invoice');
-                  if (!element) throw new Error("Preview element not found");
-                  
-                  const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-                  const imgData = canvas.toDataURL('image/png');
-                  const pdf = new jsPDF('p', 'mm', 'a4');
-                  const pdfWidth = pdf.internal.pageSize.getWidth();
-                  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                  
-                  pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                  pdf.save(`Invoice_INV-${previewInvoice?.id.toString().padStart(4, '0')}.pdf`);
-                } catch (error) {
-                  console.error("PDF Generation failed", error);
-                  alert("Failed to generate invoice PDF. Please try again.");
-                } finally {
-                  setPreviewInvoice(prev => prev ? { ...prev, isDownloading: false } : prev);
-                }
-              }}
-            >
-              {previewInvoice?.isDownloading ? (
-                <span className="animate-pulse">Generating PDF...</span>
-              ) : (
-                <>
-                  <Download className="w-5 h-5 mr-2" /> Download PDF Now
-                </>
-              )}
-            </Button>
-          </div>
+          {paymentInvoice && (
+            <PaymentDialog
+              invoice={invoices.find((i) => i.id === paymentInvoice.id) || paymentInvoice}
+              onClose={() => setPaymentInvoice(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
-
-
-
     </motion.div>
   );
 }

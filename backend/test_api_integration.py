@@ -29,8 +29,8 @@ def run_integration_tests():
             password="password123"
         )
         res1 = auth.signup(signup_payload_1, db=db)
-        assert "30-day free trial" in res1["message"]
-        print("[PASSED] Initial signup with 30-day trial created successfully")
+        assert "7-day free trial" in res1["message"]
+        print("[PASSED] Initial signup with 7-day trial created successfully")
         
         biz = db.query(models.Business).filter(models.Business.name == "Studio One").first()
         user = db.query(models.User).filter(models.User.email == "owner1@example.com").first()
@@ -39,8 +39,9 @@ def run_integration_tests():
         sub_status = subscriptions.get_subscription_status(current_user=user, business=biz, db=db)
         assert sub_status["status"] == "TRIAL"
         assert sub_status["client_limit"] == 10
-        assert sub_status["remaining_trial_days"] == 30
-        print("[PASSED] Subscription status & dynamic 30-day trial calculation test")
+        assert sub_status["remaining_trial_days"] == 7
+        print("[PASSED] Subscription status & dynamic 7-day trial calculation test")
+
 
         # 3. Anti-Abuse Test: Try signing up with same phone number
         signup_payload_abuse = schemas.UserCreate(
@@ -68,8 +69,9 @@ def run_integration_tests():
         assert allowed is False and count == 10
         print("[PASSED] 10-client limit API enforcement test")
         
-        # 5. Paid Upgrade test to TAILORPRO_YEARLY (₹15,000)
+        # 5. Paid Upgrade test to TAILORPRO_YEARLY (₹50,000)
         sub_payload = schemas.SubscribeRequest(plan="TAILORPRO_YEARLY")
+
         res_sub = subscriptions.subscribe(sub_payload, business=biz, db=db)
         assert res_sub["subscription_status"] == "ACTIVE_YEARLY"
         

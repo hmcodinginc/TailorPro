@@ -4,11 +4,19 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, Ruler, ShoppingBag, FileText,
   Package, BarChart3, Settings, LogOut, Scissors, Menu, X,
-  Bell, Search, Moon, Sun, ChevronLeft, ChevronRight, CreditCard
+  Bell, Search, ChevronLeft, ChevronRight, CreditCard, User, ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TrialWarningBanner from "./TrialWarningBanner";
 import ExpiredAccountScreen from "./ExpiredAccountScreen";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+
+import { getUserProfile } from "@/lib/api";
 
 interface SubStatus {
   status: string;
@@ -16,6 +24,7 @@ interface SubStatus {
   allowed_message: string;
   client_count: number;
 }
+
 
 /* ── Navigation config ──────────────────────────────────────────────── */
 const NAV_GROUPS = [
@@ -164,17 +173,31 @@ export default function AppLayout({
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem("darkMode");
-    if (saved !== null) return saved === "true";
-    return document.documentElement.classList.contains("dark");
-  });
+  const [currentUser, setCurrentUser] = useState<{ id?: number; name?: string; email?: string; is_superadmin?: boolean } | null>(null);
   const [subStatus, setSubStatus] = useState<SubStatus | null>(null);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("darkMode", String(dark));
-  }, [dark]);
+    // Ensure light mode
+    document.documentElement.classList.remove("dark");
+    localStorage.removeItem("darkMode");
+  }, []);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const u = await getUserProfile() as any;
+        if (u) {
+          setCurrentUser(u);
+        }
+      } catch (err) {
+        console.error("Failed to fetch user profile:", err);
+      }
+    };
+    fetchUserData();
+  }, [location.pathname]);
+
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -195,6 +218,7 @@ export default function AppLayout({
     };
     fetchStatus();
   }, [location.pathname]);
+
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -344,27 +368,89 @@ export default function AppLayout({
             </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-1.5">
-            {/* Dark mode */}
-            <button
-              onClick={() => setDark(!dark)}
-              className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
-            >
-              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
+          <div className="ml-auto flex items-center gap-2">
+            {/* Account Menu Popover */}
+            {(() => {
+              const emailPart = currentUser?.email ? currentUser.email.split("@")[0] : "";
+              const formattedEmailName = emailPart ? emailPart.charAt(0).toUpperCase() + emailPart.slice(1) : "";
+              const displayName = currentUser?.name?.trim() || formattedEmailName || "User";
+              const displayEmail = currentUser?.email || "";
+              const initial = (currentUser?.name?.trim()?.[0] || currentUser?.email?.trim()?.[0] || "U").toUpperCase();
 
-            {/* Notifications */}
-            <button className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all relative">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-sky-500" />
-            </button>
-
-            {/* Avatar */}
-            <button className="h-8 w-8 rounded-lg gradient-brand flex items-center justify-center shadow-brand-sm hover:opacity-90 transition-opacity">
-              <span className="text-white text-xs font-bold">T</span>
-            </button>
+              return (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl hover:bg-accent/60 transition-colors border border-border/40 shadow-xs"
+                    >
+                      <div className="h-7 w-7 rounded-lg gradient-brand flex items-center justify-center shadow-brand-sm text-white text-xs font-bold shrink-0">
+                        {initial}
+                      </div>
+                      <div className="hidden sm:flex flex-col text-left">
+                        <span className="text-xs font-semibold text-foreground leading-none truncate max-w-[120px]">
+                          {displayName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground leading-none mt-1">
+                          {currentUser?.is_superadmin ? "Super Admin" : "Shop Account"}
+                        </span>
+                      </div>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-56 p-2 rounded-2xl shadow-lg border border-border/80">
+                    <div className="px-3 py-2 border-b border-border mb-1">
+                      <p className="text-xs font-semibold text-foreground truncate">
+                        {displayName}
+                      </p>
+                      {displayEmail && (
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {displayEmail}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      <Link
+                        to="/settings"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                      >
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span>Profile & Settings</span>
+                      </Link>
+                      <Link
+                        to="/subscription"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                      >
+                        <CreditCard className="h-4 w-4 text-muted-foreground" />
+                        <span>Subscription Plan</span>
+                      </Link>
+                      {currentUser?.is_superadmin && (
+                        <Link
+                          to="/admin"
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                          <span>Admin Dashboard</span>
+                        </Link>
+                      )}
+                      <div className="pt-1 border-t border-border mt-1">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors w-full text-left"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Sign out</span>
+                        </button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              );
+            })()}
           </div>
+
         </header>
+
 
         {/* Trial Warning Header Notification */}
         <TrialWarningBanner />

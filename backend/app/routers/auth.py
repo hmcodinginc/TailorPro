@@ -52,11 +52,12 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
             )
             
         now = datetime.utcnow()
+        from ..core.entitlements import DEFAULT_TRIAL_DAYS
         new_business = models.Business(
             name=user.business_name,
             subscription_status=models.SubscriptionStatus.TRIAL,
             trial_started_at=now,
-            trial_ends_at=now + timedelta(days=30)
+            trial_ends_at=now + timedelta(days=DEFAULT_TRIAL_DAYS)
         )
         db.add(new_business)
         db.commit()
@@ -97,7 +98,8 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         except Exception as e:
             logger.warning(f"Verification email notice: {e}")
         
-        return {"message": "Account created successfully with 30-day free trial."}
+        return {"message": "Account created successfully with 7-day free trial."}
+
     except HTTPException:
         raise
     except Exception as e:
@@ -198,6 +200,21 @@ def logout(request_data: schemas.RefreshTokenRequest, db: Session = Depends(get_
 @router.get("/me", response_model=schemas.UserResponse)
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+@router.put("/me", response_model=schemas.UserResponse)
+def update_users_me(
+    data: schemas.UserUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if data.name is not None:
+        current_user.name = data.name.strip()
+    if data.phone is not None:
+        current_user.phone = data.phone.strip()
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
 
 @router.post("/change-password")
 def change_password(

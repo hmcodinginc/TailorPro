@@ -137,19 +137,41 @@ class PaymentType(str, enum.Enum):
 
 class Invoice(Base):
     __tablename__ = "invoices"
-    id           = Column(Integer, primary_key=True, index=True)
-    business_id  = Column(Integer, ForeignKey("businesses.id"), nullable=True)
-    customer_id  = Column(Integer, ForeignKey("customers.id"), nullable=False)
-    order_id     = Column(Integer, ForeignKey("orders.id"),    nullable=False)
-    amount       = Column(Float,   nullable=False)
-    status       = Column(SAEnum(InvoiceStatus), default=InvoiceStatus.pending, nullable=False)
-    payment_type = Column(SAEnum(PaymentType),   default=PaymentType.cash,      nullable=False)
-    notes        = Column(String(500), nullable=True)
-    created_at   = Column(DateTime(timezone=True))
-    updated_at   = Column(DateTime(timezone=True))
+    id             = Column(Integer, primary_key=True, index=True)
+    business_id    = Column(Integer, ForeignKey("businesses.id"), nullable=True)
+    invoice_number = Column(String, nullable=True, index=True)
+    customer_id    = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    order_id       = Column(Integer, ForeignKey("orders.id"),    nullable=False)
+    amount         = Column(Float,   nullable=False)
+    status         = Column(SAEnum(InvoiceStatus), default=InvoiceStatus.pending, nullable=False)
+    payment_type   = Column(SAEnum(PaymentType),   default=PaymentType.cash,      nullable=False)
+    notes          = Column(String(500), nullable=True)
+    created_at     = Column(DateTime(timezone=True))
+    updated_at     = Column(DateTime(timezone=True))
 
     customer = relationship("Customer")
     order    = relationship("Order")
+    payments = relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+    id           = Column(Integer, primary_key=True, index=True)
+    business_id  = Column(Integer, ForeignKey("businesses.id"), nullable=False)
+    invoice_id   = Column(Integer, ForeignKey("invoices.id"),   nullable=False)
+    customer_id  = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    order_id     = Column(Integer, ForeignKey("orders.id"),    nullable=True)
+    amount       = Column(Float, nullable=False)
+    payment_type = Column(String, default="cash", nullable=False)
+    reference    = Column(String, nullable=True)
+    notes        = Column(String(500), nullable=True)
+    payment_date = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at   = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    invoice  = relationship("Invoice", back_populates="payments")
+    customer = relationship("Customer")
+    order    = relationship("Order")
+
 
 class InquiryStatus(str, enum.Enum):
     NEW = "NEW"
@@ -167,4 +189,18 @@ class Inquiry(Base):
     subject = Column(String, nullable=False)
     message = Column(String, nullable=False)
     status = Column(SAEnum(InquiryStatus), default=InquiryStatus.NEW, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+    id = Column(Integer, primary_key=True, index=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False)
+    name = Column(String, nullable=False)
+    category = Column(String, nullable=False, default="Fabric")
+    quantity = Column(Float, nullable=False, default=0.0)
+    unit = Column(String, nullable=False, default="meters")
+    min_stock = Column(Float, nullable=False, default=0.0)
+    price = Column(Float, nullable=False, default=0.0)
+    supplier = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+

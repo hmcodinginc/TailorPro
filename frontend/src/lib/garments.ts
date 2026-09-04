@@ -445,6 +445,42 @@ export const ALL_GARMENTS: Record<string, GarmentTemplate> = {
   // Legacy mapping fallbacks:
   Plazo: WOMEN_GARMENTS.Palazzo,
   Pants: MEN_GARMENTS.Pant,
+  Trouser: MEN_GARMENTS.Pant,
+  Trousers: MEN_GARMENTS.Pant,
+}
+
+export function normalizeGarmentKey(name: string | null | undefined): string {
+  if (!name) return ""
+  const lower = name.trim().toLowerCase()
+  if (lower === "pant" || lower === "pants" || lower === "trouser" || lower === "trousers" || lower.includes("pant") || lower.includes("trouser")) {
+    return "Pant"
+  }
+  if (lower === "pyjama" || lower === "pajama") {
+    return "Pyjama"
+  }
+  if (lower === "chudidhar" || lower === "churidar") {
+    return "Chudidhar"
+  }
+  if (lower === "plazo" || lower === "palazzo") {
+    return "Palazzo"
+  }
+  if (lower === "salwar" || lower === "shalwar") {
+    return "Salwar"
+  }
+  if (lower === "kurta" || lower.includes("kurta")) {
+    return "Kurta"
+  }
+  if (lower === "shirt" || lower.includes("shirt")) {
+    return "Shirt"
+  }
+  const tmpl = findGarmentTemplate(name)
+  return tmpl?.key || name
+}
+
+export function garmentsMatch(g1: string | null | undefined, g2: string | null | undefined): boolean {
+  if (!g1 || !g2) return false
+  if (g1 === g2) return true
+  return normalizeGarmentKey(g1) === normalizeGarmentKey(g2)
 }
 
 export function getGarmentsByGender(gender: "Men" | "Women" | string): Record<string, GarmentTemplate> {
@@ -498,3 +534,4 @@ export function findGarmentTemplate(garmentKey: string, genderHint?: string): Ga
   )
   return foundInAll || null
 }
+

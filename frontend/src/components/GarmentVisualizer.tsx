@@ -12,8 +12,9 @@ export interface GarmentVisualizerProps {
   gender?: string
   garmentType: string
   activeField: string | null
-  fieldValues: Record<string, string>
+  fieldValues: Record<string, any>
   customImageSrc?: string
+  hideHelperText?: boolean
 }
 
 export function GarmentVisualizer({
@@ -22,6 +23,7 @@ export function GarmentVisualizer({
   activeField,
   fieldValues,
   customImageSrc,
+  hideHelperText = false,
 }: GarmentVisualizerProps) {
   const [imageError, setImageError] = useState(false)
   const normalizedGender = normalizeGender(gender)
@@ -137,23 +139,26 @@ export function GarmentVisualizer({
       </div>
 
       {/* Footer Helper Note */}
-      <div className="text-center mt-2 pt-2 border-t border-border/40 w-full">
-        <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
-          {activeField ? (
-            <>
-              <Sparkles className="h-3 w-3 text-red-500 animate-pulse shrink-0" />
-              <span>
-                Enter <strong className="text-foreground">{measurementMap[activeField]?.label || activeField}</strong>
-              </span>
-            </>
-          ) : (
-            <>
-              <Info className="h-3 w-3 text-muted-foreground shrink-0" />
-              <span>Select or type in any measurement field to highlight</span>
-            </>
-          )}
-        </p>
-      </div>
+      {!hideHelperText && (
+        <div className="text-center mt-2 pt-2 border-t border-border/40 w-full">
+          <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
+            {activeField ? (
+              <>
+                <Sparkles className="h-3 w-3 text-red-500 animate-pulse shrink-0" />
+                <span>
+                  Enter <strong className="text-foreground">{measurementMap[activeField]?.label || activeField}</strong>
+                </span>
+              </>
+            ) : (
+              <>
+                <Info className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span>Select or type in any measurement field to highlight</span>
+              </>
+            )}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
+

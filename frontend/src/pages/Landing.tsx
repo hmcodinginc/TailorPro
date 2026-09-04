@@ -140,16 +140,17 @@ const PRICING = [
   {
     name: "Free Trial",
     price: "₹0",
-    period: "for 30 days",
-    desc: "30 days free access to test TailorPro in your atelier.",
+    period: "for 7 days",
+    desc: "7 days free access to test TailorPro in your atelier.",
     features: ["Up to 10 client records", "Complete order workflow", "Garment measurement templates", "Invoices & billing", "No credit card needed"],
-    cta: "Start 30-Day Free Trial",
+    cta: "Start 7-Day Free Trial",
     highlight: false,
-    badge: "30 Days Free",
+    badge: "7 Days Free",
   },
+
   {
     name: "Monthly Plan",
-    price: "₹1,500",
+    price: "₹5,000",
     period: "/month",
     desc: "Full unlimited access to grow your tailor business.",
     features: ["Unlimited client records", "Unlimited orders & invoices", "Measurements & fabric inventory", "Priority support", "Cancel anytime"],
@@ -159,15 +160,16 @@ const PRICING = [
   },
   {
     name: "Yearly Plan",
-    price: "₹15,000",
+    price: "₹50,000",
     period: "/year",
     desc: "Commit annually and save 2 months free equivalent.",
-    features: ["Everything in Monthly", "Unlimited client records", "Equivalent to ₹1,250/month", "Save ₹3,000 every year", "Dedicated support"],
+    features: ["Everything in Monthly", "Unlimited client records", "Equivalent to ₹4,167/month", "Save ₹10,000 every year", "Dedicated support"],
     cta: "Subscribe Yearly",
     highlight: false,
-    badge: "Save ₹3,000/yr",
+    badge: "Save ₹10,000/yr",
   },
 ];
+
 
 const TESTIMONIALS = [
   { name: "Meera Patel", role: "Boutique owner, Ahmedabad", text: "TailorPro completely replaced my notebook. I can now check any measurement or order from my phone in seconds.", stars: 5 },
@@ -296,7 +298,7 @@ export default function Landing() {
                   </button>
                   <Link to="/auth" className="flex-1">
                     <Button className="w-full h-9 gradient-brand text-white text-sm rounded-xl font-semibold">
-                      Start 30-Day Trial <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                      Start 7-Day Trial <ArrowRight className="h-3.5 w-3.5 ml-1" />
                     </Button>
                   </Link>
                 </div>
@@ -322,7 +324,7 @@ export default function Landing() {
               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-sky-200 text-xs font-semibold text-sky-700 shadow-sm cursor-pointer"
             >
               <Sparkles className="h-3.5 w-3.5 text-sky-500 animate-pulse" />
-              <span>30-Day Free Trial • No Credit Card Required</span>
+              <span>7-Day Free Trial • No Credit Card Required</span>
             </motion.span>
           </motion.div>
 
@@ -342,11 +344,12 @@ export default function Landing() {
             <Link to="/auth">
               <motion.div whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}>
                 <Button size="lg" className="h-12 px-8 text-base gradient-brand text-white rounded-xl shadow-brand hover:opacity-95 font-semibold group flex items-center gap-2">
-                  <span>Start 30-Day Free Trial</span>
+                  <span>Start 7-Day Free Trial</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </motion.div>
             </Link>
+
 
             <a href="#pricing">
               <motion.div whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}>
@@ -382,8 +385,9 @@ export default function Landing() {
             className="absolute -top-5 -right-3 z-20 hidden md:flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white border border-gray-200/80 shadow-lg text-xs font-semibold text-gray-800"
           >
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>⚡ 30-Day Trial Active</span>
+            <span>⚡ 7-Day Trial Active</span>
           </motion.div>
+
 
           {/* Floating badge bottom left */}
           <motion.div
@@ -612,8 +616,9 @@ export default function Landing() {
               Transparent, Locked Commercial Pricing
             </h2>
             <p className="text-lg text-gray-500 max-w-xl mx-auto">
-              Start with a 30-day free trial. Upgrade anytime to unlock unlimited customer records.
+              Start with a 7-day free trial. Upgrade anytime to unlock unlimited customer records.
             </p>
+
           </FadeInWhenVisible>
 
           <div className="grid sm:grid-cols-3 gap-6 items-stretch">
@@ -743,13 +748,14 @@ export default function Landing() {
                 {/* Floating Top Badge */}
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-xs font-bold uppercase tracking-wider text-white shadow-sm">
                   <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-                  <span>30-Day Free Trial • Instant Activation</span>
+                  <span>7-Day Free Trial • Instant Activation</span>
                 </div>
 
                 {/* Headline */}
                 <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-white drop-shadow-sm">
-                  Start your 30-day free trial today
+                  Start your 7-day free trial today
                 </h2>
+
 
                 {/* Description */}
                 <p className="text-base sm:text-lg text-sky-50 max-w-xl mx-auto leading-relaxed font-medium">
