@@ -27,12 +27,12 @@ def run_tests():
     
     try:
         now = datetime.utcnow()
-        # 1. Create Business in TRIAL (starts now, ends in 30 days)
+        # 1. Create Business in TRIAL (starts now, ends in 7 days)
         biz = models.Business(
             name="Test Tailor Studio",
             subscription_status=models.SubscriptionStatus.TRIAL,
             trial_started_at=now,
-            trial_ends_at=now + timedelta(days=30)
+            trial_ends_at=now + timedelta(days=7)
         )
         db.add(biz)
         db.commit()

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import {
   Scissors, ArrowRight, Check, Users, ShoppingBag,
-  Ruler, FileText, Package, BarChart3, Sun, Moon, Menu, X,
+  Ruler, FileText, Package, BarChart3, Menu, X,
   TrendingUp, Star, ChevronRight, Shield, Zap, Clock, Sparkles, Award
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 24 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] },
+  transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] as const },
 });
 
 const staggerContainer = {
@@ -28,7 +28,7 @@ const staggerContainer = {
 
 const staggerItem = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
 function FadeInWhenVisible({ children, delay = 0, className = "" }: {
@@ -41,7 +41,7 @@ function FadeInWhenVisible({ children, delay = 0, className = "" }: {
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={inView ? { opacity: 1, y: 0 } : {}}
-        transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] as const }}
       >
         {children}
       </motion.div>
@@ -179,16 +179,14 @@ const TESTIMONIALS = [
 
 /* ── Main component ───────────────────────────────────────────────────── */
 export default function Landing() {
-  const [dark, setDark] = useState(() => localStorage.getItem("darkMode") === "true");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeTab, setActiveTab] = useState<"revenue" | "orders" | "clients">("revenue");
 
   useEffect(() => {
-    const el = document.documentElement;
-    dark ? el.classList.add("dark") : el.classList.remove("dark");
-    localStorage.setItem("darkMode", String(dark));
-  }, [dark]);
+    document.documentElement.classList.remove("dark");
+    localStorage.removeItem("darkMode");
+  }, []);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 16);
@@ -247,13 +245,6 @@ export default function Landing() {
 
           {/* Right actions */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setDark(!dark)}
-              className="h-9 w-9 hidden md:flex items-center justify-center rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-all"
-              aria-label="Toggle dark mode"
-            >
-              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
 
             <Link to="/auth">
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
@@ -292,11 +283,8 @@ export default function Landing() {
                     {l.label}
                   </a>
                 ))}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
-                  <button onClick={() => setDark(!dark)} className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
-                    {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  </button>
-                  <Link to="/auth" className="flex-1">
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                  <Link to="/auth" className="block w-full">
                     <Button className="w-full h-9 gradient-brand text-white text-sm rounded-xl font-semibold">
                       Start 7-Day Trial <ArrowRight className="h-3.5 w-3.5 ml-1" />
                     </Button>
@@ -362,7 +350,7 @@ export default function Landing() {
 
           {/* Trust badges */}
           <motion.div {...fadeUp(0.3)} className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs font-medium text-gray-500">
-            {["30 Days Free Trial", "Max 10 Clients on Free Tier", "Instant Setup"].map((t) => (
+            {["7 Days Free Trial", "Max 10 Clients on Free Tier", "Instant Setup"].map((t) => (
               <span key={t} className="flex items-center gap-1.5 bg-white/70 backdrop-blur-sm px-3 py-1 rounded-lg border border-gray-100 shadow-2xs">
                 <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                 {t}
@@ -375,7 +363,7 @@ export default function Landing() {
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.8, delay: 0.35, ease: [0.22, 1, 0.36, 1] as const }}
           className="mt-14 max-w-5xl mx-auto relative z-10"
         >
           {/* Floating badge top right */}
@@ -547,7 +535,7 @@ export default function Landing() {
             className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center"
           >
             {[
-              { num: "30", label: "Days Free Trial", sub: "Calculated automatically" },
+              { num: "7", label: "Days Free Trial", sub: "Calculated automatically" },
               { num: "10", label: "Client Quota (Free)", sub: "Unlimited on paid" },
               { num: "₹1,500", label: "Monthly Plan", sub: "Cancel anytime" },
               { num: "₹15,000", label: "Yearly Plan", sub: "Save ₹3,000/yr" },
@@ -785,7 +773,7 @@ export default function Landing() {
                 <div className="pt-2 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold text-sky-100">
                   <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm px-3.5 py-1.5 rounded-full border border-white/20">
                     <Check className="h-4 w-4 text-emerald-300 shrink-0" />
-                    30 days completely free
+                    7 days completely free
                   </span>
                   <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm px-3.5 py-1.5 rounded-full border border-white/20">
                     <Check className="h-4 w-4 text-emerald-300 shrink-0" />

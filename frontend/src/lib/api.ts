@@ -68,81 +68,94 @@ export const resetPassword = (data: { token: string; new_password: string }) =>
 export const verifyEmail = (data: { token: string }) =>
   request("/auth/verify-email", { method: "POST", body: jsonBody(data) })
 
+import type {
+  Customer,
+  CustomerCreateInput,
+  Order,
+  OrderCreateInput,
+  Measurement,
+  Invoice,
+  InventoryItem,
+  BusinessProfile,
+  UserProfile,
+  PaymentRecord,
+} from "./types"
+
 // BUSINESS PROFILE
-export const getBusinessProfile = () => request("/business/profile")
-export const updateBusinessProfile = (data: unknown) =>
-  request("/business/profile", { method: "PUT", body: jsonBody(data) })
+export const getBusinessProfile = () => request<BusinessProfile>("/business/profile")
+export const updateBusinessProfile = (data: Partial<BusinessProfile>) =>
+  request<BusinessProfile>("/business/profile", { method: "PUT", body: jsonBody(data) })
 
 // CUSTOMERS
-export const getCustomers = () => request("/customers/")
+export const getCustomers = () => request<Customer[]>("/customers/")
 
-export const addCustomer = (data: unknown) =>
-  request("/customers/", { method: "POST", body: jsonBody(data) })
+export const addCustomer = (data: CustomerCreateInput | Partial<Customer>) =>
+  request<Customer>("/customers/", { method: "POST", body: jsonBody(data) })
 
-export const updateCustomer = (id: number, data: unknown) =>
-  request(`/customers/${id}`, { method: "PUT", body: jsonBody(data) })
+export const updateCustomer = (id: number, data: Partial<Customer>) =>
+  request<Customer>(`/customers/${id}`, { method: "PUT", body: jsonBody(data) })
 
 export const deleteCustomer = (id: number) =>
-  request(`/customers/${id}`, { method: "DELETE" })
+  request<{ message: string }>(`/customers/${id}`, { method: "DELETE" })
 
 // ORDERS
-export const getOrders = () => request("/orders/")
+export const getOrders = () => request<Order[]>("/orders/")
 
-export const addOrder = (data: unknown) =>
-  request("/orders/", { method: "POST", body: jsonBody(data) })
+export const addOrder = (data: OrderCreateInput | Record<string, unknown>) =>
+  request<Order>("/orders/", { method: "POST", body: jsonBody(data) })
 
-export const updateOrder = (id: number, data: unknown) =>
-  request(`/orders/${id}`, { method: "PUT", body: jsonBody(data) })
+export const updateOrder = (id: number, data: Partial<Order> | Record<string, unknown>) =>
+  request<Order>(`/orders/${id}`, { method: "PUT", body: jsonBody(data) })
 
 export const deleteOrder = (id: number) =>
-  request(`/orders/${id}`, { method: "DELETE" })
+  request<{ message: string }>(`/orders/${id}`, { method: "DELETE" })
 
-export const getOrderReminders = () => request("/orders/reminders")
+export const getOrderReminders = () => request<Order[]>("/orders/reminders")
 
 // MEASUREMENTS
-export const getMeasurements = () => request("/measurements/")
+export const getMeasurements = () => request<Measurement[]>("/measurements/")
 
 export const addMeasurement = (data: FormData) =>
-  request("/measurements/", { method: "POST", body: data, rawBody: true })
+  request<Measurement>("/measurements/", { method: "POST", body: data, rawBody: true })
 
 export const updateMeasurement = (id: number, data: FormData) =>
-  request(`/measurements/${id}`, { method: "PUT", body: data, rawBody: true })
+  request<Measurement>(`/measurements/${id}`, { method: "PUT", body: data, rawBody: true })
 
 export const deleteMeasurement = (id: number) =>
-  request(`/measurements/${id}`, { method: "DELETE" })
+  request<{ message: string }>(`/measurements/${id}`, { method: "DELETE" })
 
 // INVOICES
-export const getInvoices = () => request("/invoices/")
+export const getInvoices = () => request<Invoice[]>("/invoices/")
 
 export const addInvoice = (data: unknown) =>
-  request("/invoices/", { method: "POST", body: jsonBody(data) })
+  request<Invoice>("/invoices/", { method: "POST", body: jsonBody(data) })
 
 export const createInvoice = addInvoice
 
 export const updateInvoice = (id: number, data: unknown) =>
-  request(`/invoices/${id}`, { method: "PUT", body: jsonBody(data) })
+  request<Invoice>(`/invoices/${id}`, { method: "PUT", body: jsonBody(data) })
 
 // USER PROFILE
-export const getUserProfile = () => request("/auth/me")
+export const getUserProfile = () => request<UserProfile>("/auth/me")
 export const updateUserProfile = (data: { name?: string; phone?: string }) =>
-  request("/auth/me", { method: "PUT", body: jsonBody(data) })
+  request<UserProfile>("/auth/me", { method: "PUT", body: jsonBody(data) })
 
 // INVENTORY
-export const getInventoryItems = () => request("/inventory/")
+export const getInventoryItems = () => request<InventoryItem[]>("/inventory/")
 export const addInventoryItem = (data: unknown) =>
-  request("/inventory/", { method: "POST", body: jsonBody(data) })
+  request<InventoryItem>("/inventory/", { method: "POST", body: jsonBody(data) })
 export const updateInventoryItem = (id: number, data: unknown) =>
-  request(`/inventory/${id}`, { method: "PUT", body: jsonBody(data) })
+  request<InventoryItem>(`/inventory/${id}`, { method: "PUT", body: jsonBody(data) })
 export const deleteInventoryItem = (id: number) =>
-  request(`/inventory/${id}`, { method: "DELETE" })
+  request<{ message: string }>(`/inventory/${id}`, { method: "DELETE" })
 
 export const deleteInvoice = (id: number) =>
-  request(`/invoices/${id}`, { method: "DELETE" })
+  request<{ message: string }>(`/invoices/${id}`, { method: "DELETE" })
 
 export const recordInvoicePayment = (invoiceId: number, data: unknown) =>
-  request(`/invoices/${invoiceId}/payments`, { method: "POST", body: jsonBody(data) })
+  request<PaymentRecord>(`/invoices/${invoiceId}/payments`, { method: "POST", body: jsonBody(data) })
 
 export const deleteInvoicePayment = (invoiceId: number, paymentId: number) =>
-  request(`/invoices/${invoiceId}/payments/${paymentId}`, { method: "DELETE" })
+  request<{ message: string }>(`/invoices/${invoiceId}/payments/${paymentId}`, { method: "DELETE" })
 
 

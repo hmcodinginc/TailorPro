@@ -54,6 +54,11 @@ function AnimatedRoutes() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    document.documentElement.classList.remove("dark")
+    localStorage.removeItem("darkMode")
+  }, [])
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Check for Alt + T
       if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') {
