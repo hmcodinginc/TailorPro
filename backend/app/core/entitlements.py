@@ -92,8 +92,6 @@ def get_trial_warning(business: Business) -> tuple[str | None, int]:
     
     if remaining_days <= 1:
         return "Your free trial ends tomorrow.", remaining_days
-    elif remaining_days <= 3:
-        return "Your free trial ends in 3 days.", remaining_days
     elif remaining_days <= 7:
         return f"Your free trial ends in {remaining_days} days.", remaining_days
     else:

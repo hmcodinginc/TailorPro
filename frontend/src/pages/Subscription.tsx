@@ -58,7 +58,7 @@ export default function Subscription() {
   const [data, setData] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [submittingPlan, setSubmittingPlan] = useState<string | null>(null);
-  const [grantDays, setGrantDays] = useState(30);
+  const [grantDays, setGrantDays] = useState(7);
   const [grantingTrial, setGrantingTrial] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
@@ -343,7 +343,15 @@ export default function Subscription() {
           <div className="mt-4 w-full bg-muted rounded-full h-2 overflow-hidden">
             <div
               className="bg-sky-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${Math.max(5, Math.min(100, ((30 - data.remaining_trial_days) / 30) * 100))}%` }}
+              style={{
+                width: (() => {
+                  const totalDays = (data.trial_started_at && data.trial_ends_at)
+                    ? Math.max(1, Math.round((new Date(data.trial_ends_at).getTime() - new Date(data.trial_started_at).getTime()) / (1000 * 60 * 60 * 24)))
+                    : 7;
+                  const elapsedDays = Math.max(0, totalDays - data.remaining_trial_days);
+                  return `${Math.max(5, Math.min(100, (elapsedDays / totalDays) * 100))}%`;
+                })()
+              }}
             />
           </div>
         </div>

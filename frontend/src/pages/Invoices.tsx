@@ -27,39 +27,7 @@ import { generateInvoicePDF } from "@/lib/invoicePdf";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Customer = any;
-type Order = any;
-
-type InvoiceStatus = "pending" | "paid" | "unpaid";
-type PaymentType = "cash" | "online";
-
-interface PaymentRecord {
-  id: number;
-  invoice_id: number;
-  customer_id: number;
-  order_id?: number;
-  amount: number;
-  payment_type: string;
-  reference?: string;
-  notes?: string;
-  payment_date: string;
-  created_at: string;
-}
-
-interface Invoice {
-  id: number;
-  invoice_number?: string;
-  customer_id: number;
-  order_id: number;
-  amount: number;
-  status: InvoiceStatus;
-  payment_type: PaymentType;
-  notes?: string;
-  created_at: string;
-  paid_amount?: number;
-  remaining_amount?: number;
-  payments?: PaymentRecord[];
-}
+import type { Customer, Order, Invoice, InvoiceStatus, PaymentType, PaymentRecord } from "@/lib/types";
 
 
 interface IForm {
@@ -484,17 +452,17 @@ export default function Invoices() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
+  const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["invoices"],
     queryFn: getInvoices,
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
+  const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
     queryFn: getCustomers,
   });
 
-  const { data: orders = [] } = useQuery<Order[]>({
+  const { data: orders = [] } = useQuery({
     queryKey: ["orders"],
     queryFn: getOrders,
   });
