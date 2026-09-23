@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { Plus, Search, Ruler, MoreVertical, Pencil, Trash2, Download, UserCheck } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Plus, Search, Ruler, MoreVertical, Pencil, Trash2, Download, UserCheck, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -277,8 +278,14 @@ function MeasurementForm({
             </div>
           </div>
           
-          <div className="rounded-lg min-h-[300px]">
-            <GarmentVisualizer gender={activeGender} garmentType={form.garment_type} activeField={activeField} fieldValues={form} />
+          <div className="rounded-lg min-h-[340px]">
+            <GarmentVisualizer
+              gender={activeGender}
+              garmentType={form.garment_type}
+              activeField={activeField}
+              onSelectField={(f) => setActiveField(f)}
+              fieldValues={form}
+            />
           </div>
         </div>
       )}
@@ -322,6 +329,7 @@ function MeasurementForm({
 // ── Main Page Component ────────────────────────────────────────────────────────
 
 export default function Measurements() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [genderFilter, setGenderFilter] = useState<string>("all")
@@ -447,7 +455,7 @@ export default function Measurements() {
               Add Measurement Record
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-6">
+          <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-lg">
                 <Ruler className="h-5 w-5 text-indigo-600" />
@@ -469,7 +477,6 @@ export default function Measurements() {
               measurements={measurements}
             />
           </DialogContent>
-
         </Dialog>
       </div>
 
@@ -678,7 +685,7 @@ export default function Measurements() {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-6">
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <Pencil className="h-5 w-5 text-indigo-600" />

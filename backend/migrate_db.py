@@ -43,6 +43,11 @@ def migrate():
             conn.execute(text(f"UPDATE {table} SET business_id = 1 WHERE business_id IS NULL"))
             conn.commit()
 
+        # Measurements additive columns
+        add_column_if_missing("measurements", "bicep", "bicep FLOAT")
+        add_column_if_missing("measurements", "wrist", "wrist FLOAT")
+        add_column_if_missing("measurements", "height", "height FLOAT")
+
         # Invoices sequential number column
         add_column_if_missing("invoices", "invoice_number", "invoice_number VARCHAR")
 
