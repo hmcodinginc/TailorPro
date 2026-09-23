@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom"
 import { useEffect, useState } from "react"
-import { Ruler, Phone, Mail, MapPin, ShoppingBag, FileText, ArrowLeft, Download, Pencil } from "lucide-react"
+import { Ruler, Phone, Mail, MapPin, ShoppingBag, FileText, ArrowLeft, Download, Pencil, Sparkles } from "lucide-react"
 import { getCustomers, getMeasurements, getOrders, getInvoices, updateCustomer, getBusinessProfile } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -151,14 +151,23 @@ export default function CustomerDetail() {
 
       {/* ── Measurements ── */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="flex items-center gap-2">
             <Ruler className="h-5 w-5 text-indigo-600" />
             <span>Measurements</span>
-            <span className="ml-auto text-sm font-normal text-muted-foreground">
-              {measurements.length} record{measurements.length !== 1 ? "s" : ""}
+            <span className="text-sm font-normal text-muted-foreground">
+              ({measurements.length})
             </span>
           </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs font-semibold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            onClick={() => navigate(`/measurements`)}
+          >
+            <Ruler className="h-3.5 w-3.5 text-indigo-600" />
+            Manage Measurements
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           {measurements.length === 0 && (
@@ -204,15 +213,17 @@ export default function CustomerDetail() {
                     </div>
                   </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs font-semibold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                    onClick={() => generateMeasurementPDF({ measurement: m, customer })}
-                  >
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    Download PDF 📄
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-semibold border-slate-200 text-slate-700 hover:bg-slate-50"
+                      onClick={() => generateMeasurementPDF({ measurement: m, customer })}
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      PDF
+                    </Button>
+                  </div>
                 </div>
 
                 {filledFields.length > 0 ? (

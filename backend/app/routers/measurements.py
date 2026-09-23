@@ -42,6 +42,9 @@ def create_measurement(
     upper_chest:   float = Form(None),
     under_bust:    float = Form(None),
     calf:          float = Form(None),
+    bicep:         float = Form(None),
+    wrist:         float = Form(None),
+    height:        float = Form(None),
     notes:         str   = Form(None),
     file: UploadFile = File(None),
     db: Session = Depends(database.get_db),
@@ -64,6 +67,7 @@ def create_measurement(
         collar=collar, thigh=thigh, knee=knee, ankle=ankle,
         bottom_width=bottom_width, rise=rise, flare=flare,
         upper_chest=upper_chest, under_bust=under_bust, calf=calf,
+        bicep=bicep, wrist=wrist, height=height,
         notes=notes, image=image_path, business_id=current_business.id
     )
     db.add(m)
@@ -102,6 +106,9 @@ def update_measurement(
     upper_chest:   float = Form(None),
     under_bust:    float = Form(None),
     calf:          float = Form(None),
+    bicep:         float = Form(None),
+    wrist:         float = Form(None),
+    height:        float = Form(None),
     notes:         str   = Form(None),
     file: UploadFile = File(None),
     db: Session = Depends(database.get_db),
@@ -123,6 +130,7 @@ def update_measurement(
     m.ankle = ankle;   m.bottom_width = bottom_width
     m.rise = rise;     m.flare = flare;  m.notes = notes
     m.upper_chest = upper_chest; m.under_bust = under_bust; m.calf = calf
+    m.bicep = bicep;   m.wrist = wrist;  m.height = height
 
     if file:
         file_location = f"uploads/{file.filename}"

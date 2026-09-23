@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, Ruler, ShoppingBag, FileText,
   Package, BarChart3, Settings, LogOut, Scissors, Menu, X,
-  Bell, Search, ChevronLeft, ChevronRight, CreditCard, User, ShieldCheck
+  Bell, Search, ChevronLeft, ChevronRight, CreditCard, User, ShieldCheck, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TrialWarningBanner from "./TrialWarningBanner";
@@ -31,10 +31,10 @@ const NAV_GROUPS = [
   {
     label: "Workspace",
     items: [
-      { to: "/dashboard",   label: "Dashboard",    icon: LayoutDashboard },
-      { to: "/customers",   label: "Customers",    icon: Users           },
-      { to: "/orders",      label: "Orders",       icon: ShoppingBag     },
-      { to: "/measurements",label: "Measurements", icon: Ruler           },
+      { to: "/dashboard",    label: "Dashboard",    icon: LayoutDashboard },
+      { to: "/customers",    label: "Customers",    icon: Users           },
+      { to: "/orders",       label: "Orders",       icon: ShoppingBag     },
+      { to: "/measurements", label: "Measurements", icon: Ruler           },
     ],
   },
   {

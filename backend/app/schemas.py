@@ -75,14 +75,36 @@ class Customer(CustomerCreate):
 class MeasurementCreate(BaseModel):
     customer_id:int
     garment_type:str
-    chest:float
-    waist:float
-    hips:float
-    shoulder:float
-    sleeve:float
-    inseam:float
-    neck:float
-    notes:str|None=None
+    gender:Optional[str]=None
+    chest:Optional[float]=None
+    waist:Optional[float]=None
+    hips:Optional[float]=None
+    shoulder:Optional[float]=None
+    sleeve:Optional[float]=None
+    inseam:Optional[float]=None
+    neck:Optional[float]=None
+    bust:Optional[float]=None
+    hip:Optional[float]=None
+    armhole:Optional[float]=None
+    sleeve_length:Optional[float]=None
+    sleeve_round:Optional[float]=None
+    length:Optional[float]=None
+    neck_depth:Optional[float]=None
+    neck_width:Optional[float]=None
+    collar:Optional[float]=None
+    thigh:Optional[float]=None
+    knee:Optional[float]=None
+    ankle:Optional[float]=None
+    bottom_width:Optional[float]=None
+    rise:Optional[float]=None
+    flare:Optional[float]=None
+    upper_chest:Optional[float]=None
+    under_bust:Optional[float]=None
+    calf:Optional[float]=None
+    bicep:Optional[float]=None
+    wrist:Optional[float]=None
+    height:Optional[float]=None
+    notes:Optional[str]=None
 
 class Measurement(MeasurementCreate):
     id: int
