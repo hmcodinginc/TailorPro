@@ -5,42 +5,36 @@ import {
   buildParametricMannequin,
   updateMannequinTransforms,
   buildGarmentOverlayMesh,
+  normalizeMeasurementValues,
   MannequinSceneHierarchy,
   GuideAnchor,
   ThemeStyle,
 } from "./mannequinGeometry"
-import {
-  buildRealisticHumanAvatar,
-  buildRealistic3DGarment,
-  AvatarStyle,
-  SkinTone,
-  SKIN_TONES,
-  FABRIC_COLORS,
-} from "./realisticHumanGeometry"
-import { FabricType } from "./fabricTextures"
+import { FabricType, createRealisticFabricMaterial } from "./fabricTextures"
 import {
   UnitType,
   FitType,
   formatMeasurementValue,
-  inchesToCm,
 } from "./measurementDimensions"
 import {
   RotateCcw,
-  Eye,
-  Maximize2,
-  Camera,
-  Layers,
   Sparkles,
-  Grid,
-  Shield,
-  Palette,
   Compass,
-  User,
   Shirt,
   Scissors,
+  Eye,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+
+export const BESPOKE_SWATCHES = [
+  { label: "Crisp Oxford White", color: 0xf8fafc, bg: "#f8fafc", border: "#cbd5e1" },
+  { label: "Savile Row Navy", color: 0x1e3a8a, bg: "#1e3a8a", border: "#172554" },
+  { label: "Tailored Sky Blue", color: 0x7dd3fc, bg: "#7dd3fc", border: "#38bdf8" },
+  { label: "Charcoal Melange", color: 0x374151, bg: "#374151", border: "#1f2937" },
+  { label: "Burgundy Wine", color: 0x881337, bg: "#881337", border: "#4c0519" },
+  { label: "Camel Khaki", color: 0xd97706, bg: "#d97706", border: "#92400e" },
+]
 
 export interface BodyMannequin3DProps {
   gender?: "Men" | "Women"
@@ -51,16 +45,9 @@ export interface BodyMannequin3DProps {
   unit?: UnitType
   fitType?: FitType
   themeStyle?: ThemeStyle
-  avatarStyle?: AvatarStyle
-  skinTone?: SkinTone
   fabricType?: FabricType
   garmentColor?: number
   isOpaqueGarment?: boolean
-  onAvatarStyleChange?: (style: AvatarStyle) => void
-  onSkinToneChange?: (tone: SkinTone) => void
-  onFabricTypeChange?: (fabric: FabricType) => void
-  onGarmentColorChange?: (color: number) => void
-  onOpaqueGarmentChange?: (isOpaque: boolean) => void
   showGuides?: boolean
   showGarment?: boolean
   showStand?: boolean
@@ -85,16 +72,9 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       unit = "inches",
       fitType = "regular",
       themeStyle = "tailor",
-      avatarStyle: avatarStyleProp,
-      skinTone: skinToneProp,
-      fabricType: fabricTypeProp,
-      garmentColor: garmentColorProp,
-      isOpaqueGarment: isOpaqueGarmentProp,
-      onAvatarStyleChange,
-      onSkinToneChange,
-      onFabricTypeChange,
-      onGarmentColorChange,
-      onOpaqueGarmentChange,
+      fabricType: fabricTypeProp = "cotton",
+      garmentColor: garmentColorProp = 0xf8fafc,
+      isOpaqueGarment: isOpaqueGarmentProp = true,
       showGuides = true,
       showGarment = true,
       showStand = true,
@@ -130,61 +110,18 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
     const raycaster = useRef(new THREE.Raycaster())
     const mouse = useRef(new THREE.Vector2())
 
-    // Realistic Avatar & Fabric State (Controlled or Uncontrolled fallback)
-    const [internalAvatarStyle, setInternalAvatarStyle] = useState<AvatarStyle>(avatarStyleProp || "human")
-    const [internalSkinTone, setInternalSkinTone] = useState<SkinTone>(skinToneProp || "medium")
-    const [internalFabricType, setInternalFabricType] = useState<FabricType>(fabricTypeProp || "cotton")
-    const [internalColor, setInternalColor] = useState<number>(garmentColorProp ?? 0x2563eb)
-    const [internalOpaque, setInternalOpaque] = useState<boolean>(isOpaqueGarmentProp ?? true)
-    const [showClothSettings, setShowClothSettings] = useState<boolean>(false)
+    // Display mode: "fitted" (clothed on form) | "dressform" (pure couture form) | "xray" (semi-transparent)
+    const [displayMode, setDisplayMode] = useState<"fitted" | "dressform" | "xray">("fitted")
+    const [currentColor, setCurrentColor] = useState<number>(garmentColorProp)
+    const [currentFabric, setCurrentFabric] = useState<FabricType>(fabricTypeProp)
 
-    const avatarStyle = avatarStyleProp ?? internalAvatarStyle
-    const skinTone = skinToneProp ?? internalSkinTone
-    const fabricType = fabricTypeProp ?? internalFabricType
-    const garmentColor = garmentColorProp ?? internalColor
-    const isOpaqueGarment = isOpaqueGarmentProp ?? internalOpaque
-
-    const handleAvatarStyleChange = (s: AvatarStyle) => {
-      setInternalAvatarStyle(s)
-      onAvatarStyleChange?.(s)
-    }
-
-    const handleSkinToneChange = (t: SkinTone) => {
-      setInternalSkinTone(t)
-      onSkinToneChange?.(t)
-    }
-
-    const handleFabricTypeChange = (f: FabricType) => {
-      setInternalFabricType(f)
-      onFabricTypeChange?.(f)
-    }
-
-    const handleColorChange = (c: number) => {
-      setInternalColor(c)
-      onGarmentColorChange?.(c)
-    }
-
-    const handleOpaqueToggle = () => {
-      const next = !isOpaqueGarment
-      setInternalOpaque(next)
-      onOpaqueGarmentChange?.(next)
-    }
-
-    // Convert raw measurement record into numerical values (in inches)
+    // Convert and normalize raw measurement record into numerical values (in inches)
     const parseMeasurements = useCallback((): Record<string, number> => {
-      const parsed: Record<string, number> = {}
-      if (!measurements) return parsed
-      Object.entries(measurements).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== "") {
-          const num = parseFloat(String(v))
-          if (!isNaN(num)) parsed[k] = num
-        }
-      })
-      return parsed
-    }, [measurements])
+      return normalizeMeasurementValues(measurements, gender)
+    }, [measurements, gender])
 
     // -------------------------------------------------------------
-    // Setup Three.js Scene
+    // Setup Three.js Scene with Luxury Atelier Lighting
     // -------------------------------------------------------------
     useEffect(() => {
       if (!containerRef.current || !canvasRef.current) return
@@ -199,11 +136,11 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       sceneRef.current = scene
 
       // Camera
-      const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 50)
-      camera.position.set(0, 1.15, 2.7)
+      const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 50)
+      camera.position.set(0, 1.15, 2.75)
       cameraRef.current = camera
 
-      // Renderer with antialiasing and preserveDrawingBuffer for screenshots
+      // Renderer with antialiasing and high precision
       const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: true,
@@ -216,63 +153,60 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.15
+      renderer.toneMappingExposure = 1.18
       rendererRef.current = renderer
 
       // OrbitControls
       const controls = new OrbitControls(camera, renderer.domElement)
       controls.enableDamping = true
       controls.dampingFactor = 0.08
-      controls.target.set(0, 0.95, 0)
+      controls.target.set(0, 0.98, 0)
       controls.minDistance = 1.0
-      controls.maxDistance = 5.5
-      controls.maxPolarAngle = Math.PI / 2 + 0.15 // Allow slightly low view but not under floor
+      controls.maxDistance = 5.0
+      controls.maxPolarAngle = Math.PI / 2 + 0.12
       controls.autoRotate = autoRotate
       controls.autoRotateSpeed = 1.8
       controlsRef.current = controls
 
-      // Lighting Rig - Professional 3-Point Studio Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1.4)
+      // Lighting Rig - Professional High-Fashion Atelier Lighting
+      const ambientLight = new THREE.AmbientLight(0xfffdfa, 1.45)
       scene.add(ambientLight)
 
-      // Key Light
-      const keyLight = new THREE.DirectionalLight(0xfff5ea, 1.8)
-      keyLight.position.set(2.5, 3.5, 2.5)
+      // Key Light (Warm daylight)
+      const keyLight = new THREE.DirectionalLight(0xfff8ee, 1.8)
+      keyLight.position.set(2.4, 3.8, 2.6)
       keyLight.castShadow = true
       keyLight.shadow.mapSize.width = 1024
       keyLight.shadow.mapSize.height = 1024
-      keyLight.shadow.bias = -0.0005
+      keyLight.shadow.bias = -0.0004
       scene.add(keyLight)
 
-      // Fill Light
-      const fillLight = new THREE.DirectionalLight(0xe0f2fe, 1.0)
-      fillLight.position.set(-2.5, 2.0, 1.8)
+      // Fill Light (Soft cool ambient bounce)
+      const fillLight = new THREE.DirectionalLight(0xe0f2fe, 1.1)
+      fillLight.position.set(-2.5, 2.2, 1.8)
       scene.add(fillLight)
 
-      // Rim Light (Backlight for natural human silhouette contour)
-      const rimLight = new THREE.DirectionalLight(0xffffff, 1.3)
-      rimLight.position.set(0, 3.0, -2.5)
+      // Rim Light (Backlight for couture edge contour)
+      const rimLight = new THREE.DirectionalLight(0xffffff, 1.35)
+      rimLight.position.set(0, 3.2, -2.6)
       scene.add(rimLight)
 
-      // Subtle Ground Shadow Plane
-      const shadowPlaneGeo = new THREE.PlaneGeometry(3.5, 3.5)
-      const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.22 })
+      // Soft Ground Shadow Plane
+      const shadowPlaneGeo = new THREE.PlaneGeometry(3.2, 3.2)
+      const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.25 })
       const shadowPlane = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat)
       shadowPlane.rotation.x = -Math.PI / 2
       shadowPlane.position.y = 0.005
       shadowPlane.receiveShadow = true
       scene.add(shadowPlane)
 
-      // Subtle Circular Grid Floor
-      const gridHelper = new THREE.PolarGridHelper(1.6, 16, 8, 32, 0x94a3b8, 0xe2e8f0)
+      // Circular Grid Floor
+      const gridHelper = new THREE.PolarGridHelper(1.5, 16, 8, 32, 0x94a3b8, 0xe2e8f0)
       gridHelper.position.y = 0.002
       scene.add(gridHelper)
 
-      // Build Realistic Human Avatar OR Parametric Mannequin
-      const hierarchy = avatarStyle === "human"
-        ? buildRealisticHumanAvatar(gender, skinTone, fabricType, garmentColor, isOpaqueGarment, isWireframe)
-        : buildParametricMannequin(gender, themeStyle, isWireframe)
-
+      // Build Haute-Couture Atelier Dress Form
+      const hierarchy = buildParametricMannequin(gender, themeStyle, isWireframe)
       scene.add(hierarchy.rootGroup)
       hierarchyRef.current = hierarchy
 
@@ -280,7 +214,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       const animate = () => {
         reqIdRef.current = requestAnimationFrame(animate)
 
-        // Smooth Camera Transition Lerp if active
+        // Smooth Camera Transition Lerp
         if (targetCamPos.current && cameraRef.current && controlsRef.current) {
           cameraRef.current.position.lerp(targetCamPos.current, 0.08)
           if (targetLookAt.current) {
@@ -318,7 +252,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
         renderer.dispose()
         scene.clear()
       }
-    }, [gender, themeStyle, isWireframe, avatarStyle, skinTone, fabricType, garmentColor, isOpaqueGarment])
+    }, [gender, themeStyle, isWireframe])
 
     // Update Auto-Rotate
     useEffect(() => {
@@ -335,7 +269,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
     }, [showStand])
 
     // -------------------------------------------------------------
-    // Real-Time Morph & Guide Rings Generation
+    // Real-Time Morph & Dynamic Garment Regeneration
     // -------------------------------------------------------------
     useEffect(() => {
       if (!hierarchyRef.current || !sceneRef.current) return
@@ -343,7 +277,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       const hierarchy = hierarchyRef.current
       const parsedValues = parseMeasurements()
 
-      // Apply morph transforms
+      // Apply morph transforms to the Haute-Couture Dress Form
       const anchors = updateMannequinTransforms(
         hierarchy,
         parsedValues,
@@ -353,19 +287,32 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       )
       setGuideAnchors(anchors)
 
-      // Rebuild 3D Guide Rings
+      // Rebuild 3D Guide Tape Rings
       hierarchy.guidesGroup.clear()
       guideMeshesRef.current = {}
 
       if (showGuides) {
         anchors.forEach((anchor) => {
-          const isActive = activeField === anchor.key || hoveredField === anchor.key
+          const matchKey = (k: string | null) => {
+            if (!k) return false
+            if (k === anchor.key) return true
+            if ((k === "bust" || k === "chest" || k === "upper_chest") && (anchor.key === "chest" || anchor.key === "bust")) return true
+            if ((k === "collar" || k === "neck" || k === "neck_size") && (anchor.key === "neck" || anchor.key === "collar")) return true
+            if ((k === "shoulder" || k === "shoulder_width") && anchor.key === "shoulder") return true
+            if ((k === "sleeve_length" || k === "sleeve") && anchor.key === "sleeve_length") return true
+            if ((k === "sleeve_round" || k === "wrist" || k === "cuff") && (anchor.key === "wrist" || anchor.key === "sleeve_round")) return true
+            if ((k === "waist" || k === "waist_round") && anchor.key === "waist") return true
+            if ((k === "hip" || k === "hip_round") && anchor.key === "hip") return true
+            if ((k === "length" || k === "shirt_length" || k === "total_length") && anchor.key === "length") return true
+            return false
+          }
+          const isActive = matchKey(activeField) || matchKey(hoveredField)
           const mat = isActive
             ? hierarchy.materials.guideActiveMat
             : hierarchy.materials.guideMat
 
           if (anchor.orientation === "horizontal") {
-            const torusGeo = new THREE.TorusGeometry(anchor.radius, isActive ? 0.005 : 0.0035, 12, 48)
+            const torusGeo = new THREE.TorusGeometry(anchor.radius, isActive ? 0.0055 : 0.0035, 12, 48)
             torusGeo.rotateX(Math.PI / 2)
             const ringMesh = new THREE.Mesh(torusGeo, mat)
             ringMesh.position.copy(anchor.position)
@@ -390,24 +337,29 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
         })
       }
 
-      // Rebuild 3D Garment Draping Overlay / Realistic Clothes
+      // Rebuild 3D Tailored Garment Draping
       if (garmentMeshRef.current) {
         hierarchy.rootGroup.remove(garmentMeshRef.current)
+        garmentMeshRef.current = null
       }
-      if (showGarment) {
-        const garmentMesh = avatarStyle === "human"
-          ? buildRealistic3DGarment(
-              garmentType,
-              gender,
-              (hierarchy as any).materials,
-              parsedValues
-            )
-          : buildGarmentOverlayMesh(
-              garmentType,
-              gender,
-              hierarchy.materials,
-              parsedValues
-            )
+
+      const shouldRenderGarment = showGarment && displayMode !== "dressform"
+      if (shouldRenderGarment) {
+        const isXray = displayMode === "xray"
+        const customGarmentMat = createRealisticFabricMaterial(
+          currentFabric,
+          currentColor,
+          isXray ? 0.45 : 0.98,
+          isXray
+        )
+
+        const garmentMesh = buildGarmentOverlayMesh(
+          garmentType,
+          gender,
+          hierarchy.materials,
+          parsedValues,
+          customGarmentMat
+        )
         hierarchy.rootGroup.add(garmentMesh)
         garmentMeshRef.current = garmentMesh
       }
@@ -420,19 +372,23 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       hoveredField,
       showGuides,
       showGarment,
-      avatarStyle,
-      skinTone,
-      fabricType,
-      garmentColor,
-      isOpaqueGarment,
+      displayMode,
+      currentColor,
+      currentFabric,
       parseMeasurements,
     ])
 
     // -------------------------------------------------------------
-    // Calculate 2D Screen Badges from 3D Anchors
+    // Calculate 2D Screen Badges for ACTIVE Field Only (Zero Clutter)
     // -------------------------------------------------------------
     const updateScreenBadges = useCallback(() => {
       if (!cameraRef.current || !containerRef.current || !showGuides) {
+        setScreenLabels([])
+        return
+      }
+
+      const targetKey = activeField || hoveredField
+      if (!targetKey) {
         setScreenLabels([])
         return
       }
@@ -443,54 +399,60 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       const height = container.clientHeight
       const parsedValues = parseMeasurements()
 
-      // Only show badges for the active field or primary core measurements
-      const priorityKeys = [
-        activeField,
-        "chest",
-        "waist",
-        "hip",
-        "shoulder",
-        "sleeve_length",
-        "neck",
-        "inseam",
-      ].filter(Boolean) as string[]
+      const matchAnchor = (anchorKey: string, k: string | null) => {
+        if (!k) return false
+        if (k === anchorKey) return true
+        if ((k === "bust" || k === "chest" || k === "upper_chest") && (anchorKey === "chest" || anchorKey === "bust")) return true
+        if ((k === "collar" || k === "neck" || k === "neck_size") && (anchorKey === "neck" || anchorKey === "collar")) return true
+        if ((k === "shoulder" || k === "shoulder_width") && anchorKey === "shoulder") return true
+        if ((k === "sleeve_length" || k === "sleeve") && anchorKey === "sleeve_length") return true
+        if ((k === "sleeve_round" || k === "wrist" || k === "cuff") && (anchorKey === "wrist" || anchorKey === "sleeve_round")) return true
+        if ((k === "waist" || k === "waist_round") && anchorKey === "waist") return true
+        if ((k === "hip" || k === "hip_round") && anchorKey === "hip") return true
+        if ((k === "length" || k === "shirt_length" || k === "total_length") && anchorKey === "length") return true
+        return false
+      }
 
-      const labels = guideAnchors
-        .filter((a) => priorityKeys.includes(a.key))
-        .map((anchor) => {
-          const wp = anchor.position.clone()
-          // Offset slightly outward in 3D for legibility
-          if (anchor.orientation === "horizontal") {
-            wp.x += anchor.radius * 0.95
-            wp.z += anchor.radius * 0.35
-          }
+      const matchedAnchors = guideAnchors.filter((a) => matchAnchor(a.key, targetKey))
+      const anchorToUse = matchedAnchors[0] || null
 
-          wp.project(camera)
+      if (!anchorToUse) {
+        setScreenLabels([])
+        return
+      }
 
-          const x = ((wp.x + 1) * width) / 2
-          const y = ((-wp.y + 1) * height) / 2
-          const isVisible = wp.z < 1 // In front of camera
+      const wp = anchorToUse.position.clone()
+      if (anchorToUse.orientation === "horizontal") {
+        wp.x += anchorToUse.radius * 0.95
+        wp.z += anchorToUse.radius * 0.35
+      }
 
-          const valNum = parsedValues[anchor.key]
-          const valStr = formatMeasurementValue(valNum, unit)
+      wp.project(camera)
 
-          return {
-            key: anchor.key,
-            label: anchor.label,
+      const x = ((wp.x + 1) * width) / 2
+      const y = ((-wp.y + 1) * height) / 2
+      const isVisible = wp.z < 1
+
+      if (isVisible && x > 15 && x < width - 15 && y > 15 && y < height - 15) {
+        const valNum = parsedValues[anchorToUse.key]
+        const valStr = formatMeasurementValue(valNum, unit)
+        setScreenLabels([
+          {
+            key: anchorToUse.key,
+            label: anchorToUse.label,
             x: Math.round(x),
             y: Math.round(y),
             val: valStr,
-            isActive: activeField === anchor.key,
-            isVisible,
-          }
-        })
-        .filter((l) => l.isVisible && l.x > 10 && l.x < width - 10 && l.y > 10 && l.y < height - 10)
-
-      setScreenLabels(labels)
-    }, [guideAnchors, activeField, unit, showGuides, parseMeasurements])
+            isActive: true,
+          },
+        ])
+      } else {
+        setScreenLabels([])
+      }
+    }, [guideAnchors, activeField, hoveredField, unit, showGuides, parseMeasurements])
 
     useEffect(() => {
-      const interval = setInterval(updateScreenBadges, 100)
+      const interval = setInterval(updateScreenBadges, 80)
       return () => clearInterval(interval)
     }, [updateScreenBadges])
 
@@ -520,50 +482,56 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
           onSelectField(hitField)
         }
       } else {
-        setHoveredField(hitField)
+        if (hitField !== hoveredField) {
+          setHoveredField(hitField)
+        }
       }
     }
 
     // -------------------------------------------------------------
-    // Camera View Controller Methods
+    // Camera View Angles Presets
     // -------------------------------------------------------------
-    const setView = useCallback((view: "front" | "back" | "left" | "right" | "top" | "iso") => {
-      setAutoRotate(false)
-      const look = new THREE.Vector3(0, 0.95, 0)
-      targetLookAt.current = look
+    const setView = (view: "front" | "back" | "left" | "right" | "top" | "iso") => {
+      if (!cameraRef.current || !controlsRef.current) return
+
+      const dist = 2.75
+      const target = new THREE.Vector3(0, 0.98, 0)
+      let pos = new THREE.Vector3()
 
       switch (view) {
         case "front":
-          targetCamPos.current = new THREE.Vector3(0, 1.1, 2.7)
+          pos.set(0, 1.15, dist)
           break
         case "back":
-          targetCamPos.current = new THREE.Vector3(0, 1.1, -2.7)
+          pos.set(0, 1.15, -dist)
           break
         case "left":
-          targetCamPos.current = new THREE.Vector3(-2.7, 1.1, 0)
+          pos.set(-dist, 1.15, 0)
           break
         case "right":
-          targetCamPos.current = new THREE.Vector3(2.7, 1.1, 0)
+          pos.set(dist, 1.15, 0)
           break
         case "top":
-          targetCamPos.current = new THREE.Vector3(0, 3.4, 0.1)
+          pos.set(0, dist + 0.8, 0.05)
           break
         case "iso":
         default:
-          targetCamPos.current = new THREE.Vector3(1.8, 1.6, 2.1)
+          pos.set(dist * 0.7, 1.45, dist * 0.7)
           break
       }
-    }, [])
 
-    const resetCamera = useCallback(() => {
+      targetCamPos.current = pos
+      targetLookAt.current = target
+    }
+
+    const resetCamera = () => {
       setView("front")
-    }, [setView])
+    }
 
-    const takeScreenshot = useCallback((): string | null => {
-      if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return null
-      rendererRef.current.render(sceneRef.current, cameraRef.current)
+    const takeScreenshot = (): string | null => {
+      if (!rendererRef.current) return null
       return rendererRef.current.domElement.toDataURL("image/png")
-    }, [])
+    }
 
     useImperativeHandle(ref, () => ({
       takeScreenshot,
@@ -572,10 +540,10 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
     }))
 
     return (
-      <div className={`relative w-full h-full flex flex-col items-center justify-center overflow-hidden select-none bg-gradient-to-b from-slate-900/5 via-slate-900/10 to-slate-900/20 dark:from-slate-950 dark:to-slate-900 rounded-2xl border border-border shadow-inner ${className}`}>
+      <div className={`relative w-full h-full flex flex-col items-center justify-center overflow-hidden select-none bg-gradient-to-b from-slate-900/5 via-slate-900/10 to-slate-900/20 dark:from-slate-950 dark:to-slate-900 rounded-xl border border-border shadow-inner ${className}`}>
         
         {/* Main 3D Canvas */}
-        <div ref={containerRef} className="relative w-full h-full min-h-[380px] flex items-center justify-center cursor-grab active:cursor-grabbing">
+        <div ref={containerRef} className="relative w-full h-full min-h-[360px] flex items-center justify-center cursor-grab active:cursor-grabbing">
           <canvas
             ref={canvasRef}
             className="w-full h-full block touch-none"
@@ -583,170 +551,104 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
             onPointerMove={(e) => handleCanvasPointer(e, false)}
           />
 
-          {/* Floating 3D Measurement Badges Projected on Canvas */}
+          {/* Focused Measurement Badge (Zero clutter - only active/hovered field) */}
           {screenLabels.map((lbl) => (
-            <button
+            <div
               key={lbl.key}
-              type="button"
-              onClick={() => onSelectField?.(lbl.key)}
               style={{
                 transform: `translate(${lbl.x}px, ${lbl.y}px) translate(-50%, -50%)`,
               }}
-              className={`absolute pointer-events-auto transition-all duration-200 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shadow-md backdrop-blur-md border ${
-                lbl.isActive
-                  ? "bg-red-600 text-white border-red-300 ring-4 ring-red-500/25 scale-110 z-20"
-                  : "bg-background/90 text-foreground border-border/80 hover:border-primary hover:scale-105 z-10"
-              }`}
+              className="absolute pointer-events-none transition-all duration-150 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-md bg-indigo-600 text-white border border-indigo-300 ring-4 ring-indigo-500/25 scale-105 z-20 animate-in fade-in zoom-in-95 duration-100"
             >
-              <span className="text-[10px] font-medium opacity-80">{lbl.label}:</span>
-              <span className="font-mono">{lbl.val}</span>
-            </button>
+              <span className="text-[10px] uppercase tracking-wider opacity-90">{lbl.label}:</span>
+              <span className="font-mono text-sm">{lbl.val}</span>
+            </div>
           ))}
         </div>
 
-        {/* Floating Top-Left Garment & Avatar Controls */}
-        <div className="absolute top-3 left-3 flex flex-col gap-2 pointer-events-auto z-10 max-w-[280px]">
-          {/* Header Badges */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className="bg-background/90 backdrop-blur-md border-border font-semibold shadow-xs text-[11px]">
+        {/* Floating Top-Left HUD Controls */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 pointer-events-auto z-10">
+          {/* Header Tag */}
+          <div className="flex items-center gap-1">
+            <Badge variant="outline" className="bg-background/90 backdrop-blur-md border-border font-semibold shadow-2xs text-[10px] py-0 px-1.5">
               {gender === "Women" ? "👩 Women" : "👨 Men"}
             </Badge>
-            <Badge variant="secondary" className="bg-background/90 backdrop-blur-md border-border font-semibold shadow-xs text-[11px]">
+            <Badge variant="secondary" className="bg-background/90 backdrop-blur-md border-border font-semibold shadow-2xs text-[10px] py-0 px-1.5">
               {garmentType}
             </Badge>
-            <Badge
-              variant="outline"
-              className={`text-[10px] ${
-                fitType === "slim"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : fitType === "loose"
-                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                  : "bg-blue-50 text-blue-700 border-blue-200"
-              }`}
-            >
-              {fitType === "slim" ? "Slim" : fitType === "loose" ? "Relaxed" : "Regular"}
-            </Badge>
           </div>
 
-          {/* Model Switcher: Realistic Human vs Dress Form */}
-          <div className="flex items-center gap-1 bg-background/90 backdrop-blur-md p-1 rounded-xl border border-border/80 shadow-md">
-            <Button
-              variant={avatarStyle === "human" ? "default" : "ghost"}
-              size="sm"
-              className="h-6 px-2 text-[11px] font-bold gap-1"
-              onClick={() => handleAvatarStyleChange("human")}
+          {/* Garment Display Mode Switcher */}
+          <div className="flex items-center bg-background/90 backdrop-blur-md p-0.5 rounded-lg border border-border/80 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setDisplayMode("fitted")}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                displayMode === "fitted"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="View Tailored Clothing Fitted on Form"
             >
-              <User className="h-3 w-3" />
-              <span>Human Avatar</span>
-            </Button>
-            <Button
-              variant={avatarStyle === "mannequin" ? "default" : "ghost"}
-              size="sm"
-              className="h-6 px-2 text-[11px] font-semibold gap-1"
-              onClick={() => handleAvatarStyleChange("mannequin")}
+              <Shirt className="h-3 w-3" />
+              <span>Garment</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDisplayMode("dressform")}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                displayMode === "dressform"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="View Atelier Dress Form & Seams Only"
             >
               <Scissors className="h-3 w-3" />
-              <span>Mannequin</span>
-            </Button>
-            
-            {avatarStyle === "human" && (
-              <Button
-                variant={showClothSettings ? "secondary" : "ghost"}
-                size="sm"
-                className="h-6 px-1.5 text-[11px] font-semibold ml-auto"
-                title="Customize Fabric, Skin & Colors"
-                onClick={() => setShowClothSettings(!showClothSettings)}
-              >
-                <Palette className="h-3 w-3" />
-              </Button>
-            )}
+              <span>Dress Form</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDisplayMode("xray")}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                displayMode === "xray"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Semi-Transparent X-Ray Fit Guide"
+            >
+              <Eye className="h-3 w-3" />
+              <span>X-Ray</span>
+            </button>
           </div>
 
-          {/* Expanded Clothing & Skin Customizer Panel */}
-          {avatarStyle === "human" && showClothSettings && (
-            <div className="flex flex-col gap-2 p-2.5 bg-background/95 backdrop-blur-lg rounded-xl border border-border/90 shadow-xl text-[11px] animate-in fade-in slide-in-from-top-2 duration-150">
-              {/* Complexion / Skin Tone */}
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] font-semibold text-muted-foreground">Skin Tone:</span>
-                <div className="flex items-center gap-1">
-                  {(Object.keys(SKIN_TONES) as SkinTone[]).map((tone) => (
-                    <button
-                      key={tone}
-                      type="button"
-                      onClick={() => handleSkinToneChange(tone)}
-                      title={SKIN_TONES[tone].label}
-                      style={{ backgroundColor: `#${SKIN_TONES[tone].color.toString(16).padStart(6, "0")}` }}
-                      className={`w-4 h-4 rounded-full border transition-all ${
-                        skinTone === tone
-                          ? "ring-2 ring-primary ring-offset-1 scale-110 border-white"
-                          : "border-black/20 opacity-80 hover:opacity-100"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Garment Drape Mode: Opaque Clothes vs Translucent Fit Guide */}
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] font-semibold text-muted-foreground">Cloth View:</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-5 px-1.5 text-[10px] font-medium"
-                  onClick={handleOpaqueToggle}
-                >
-                  {isOpaqueGarment ? "👔 Actual Fabric" : "🔍 Fit X-Ray"}
-                </Button>
-              </div>
-
-              {/* Fabric Weave */}
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold text-muted-foreground">Fabric Material:</span>
-                <div className="grid grid-cols-3 gap-1">
-                  {(["cotton", "wool", "silk", "linen", "denim"] as FabricType[]).map((f) => (
-                    <Button
-                      key={f}
-                      variant={fabricType === f ? "default" : "outline"}
-                      size="sm"
-                      className="h-5 px-1 text-[9px] capitalize"
-                      onClick={() => handleFabricTypeChange(f)}
-                    >
-                      {f}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Fabric Color Swatches */}
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold text-muted-foreground">Fabric Color:</span>
-                <div className="flex flex-wrap gap-1 items-center">
-                  {FABRIC_COLORS.map((c) => (
-                    <button
-                      key={c.label}
-                      type="button"
-                      onClick={() => handleColorChange(c.color)}
-                      title={c.label}
-                      style={{ backgroundColor: `#${c.color.toString(16).padStart(6, "0")}` }}
-                      className={`w-4 h-4 rounded-full border transition-all ${
-                        garmentColor === c.color
-                          ? "ring-2 ring-primary ring-offset-1 scale-110 border-white"
-                          : "border-black/20 opacity-80 hover:opacity-100"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
+          {/* Quick Bespoke Fabric Color Swatches */}
+          {displayMode !== "dressform" && (
+            <div className="flex items-center gap-1 bg-background/85 backdrop-blur-md p-1 rounded-lg border border-border/70 shadow-2xs">
+              <span className="text-[9px] font-semibold text-muted-foreground ml-0.5 mr-1">Fabric:</span>
+              {BESPOKE_SWATCHES.map((swatch) => (
+                <button
+                  key={swatch.label}
+                  type="button"
+                  title={swatch.label}
+                  onClick={() => setCurrentColor(swatch.color)}
+                  style={{ backgroundColor: swatch.bg, borderColor: swatch.border }}
+                  className={`w-3.5 h-3.5 rounded-full border transition-transform ${
+                    currentColor === swatch.color
+                      ? "ring-2 ring-primary ring-offset-1 scale-110"
+                      : "opacity-85 hover:opacity-100 hover:scale-105"
+                  }`}
+                />
+              ))}
             </div>
           )}
         </div>
 
         {/* Floating Top-Right View Presets Gizmo */}
-        <div className="absolute top-3 right-3 flex items-center gap-1 bg-background/85 backdrop-blur-md p-1 rounded-xl border border-border/80 shadow-md z-10">
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-0.5 bg-background/85 backdrop-blur-md p-0.5 rounded-lg border border-border/80 shadow-xs z-10">
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[11px] font-semibold"
+            className="h-6 px-1.5 text-[10px] font-semibold"
             title="Front View"
             onClick={() => setView("front")}
           >
@@ -755,7 +657,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[11px] font-semibold"
+            className="h-6 px-1.5 text-[10px] font-semibold"
             title="Side Profile"
             onClick={() => setView("right")}
           >
@@ -764,7 +666,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[11px] font-semibold"
+            className="h-6 px-1.5 text-[10px] font-semibold"
             title="Back View"
             onClick={() => setView("back")}
           >
@@ -773,7 +675,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[11px] font-semibold"
+            className="h-6 px-1.5 text-[10px] font-semibold"
             title="Isometric 3/4 View"
             onClick={() => setView("iso")}
           >
@@ -782,30 +684,30 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
             title="Reset Camera"
             onClick={resetCamera}
           >
-            <RotateCcw className="h-3.5 w-3.5" />
+            <RotateCcw className="h-3 w-3" />
           </Button>
         </div>
 
-        {/* Floating Bottom Center Helper & Turntable Toggle */}
-        <div className="absolute bottom-3 inset-x-3 flex items-center justify-between pointer-events-none z-10">
-          <div className="flex items-center gap-1.5 bg-background/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/70 text-[11px] text-muted-foreground shadow-sm pointer-events-auto">
-            <Sparkles className="h-3 w-3 text-primary shrink-0 animate-pulse" />
-            <span>Click any body part or guide loop to focus & edit measurement</span>
+        {/* Floating Bottom Helper & Turntable Toggle */}
+        <div className="absolute bottom-2.5 inset-x-2.5 flex items-center justify-between pointer-events-none z-10">
+          <div className="flex items-center gap-1.5 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-md border border-border/70 text-[10px] text-muted-foreground shadow-2xs pointer-events-auto">
+            <Sparkles className="h-3 w-3 text-indigo-500 shrink-0" />
+            <span>Click any tape ring to focus field</span>
           </div>
 
-          <div className="flex items-center gap-1.5 pointer-events-auto">
+          <div className="flex items-center gap-1 pointer-events-auto">
             <Button
               variant={autoRotate ? "default" : "outline"}
               size="sm"
-              className="h-7 text-[11px] font-semibold bg-background/90 backdrop-blur-md shadow-sm gap-1"
+              className="h-6 px-2 text-[10px] font-semibold bg-background/90 backdrop-blur-md shadow-2xs gap-1"
               onClick={() => setAutoRotate(!autoRotate)}
             >
-              <Compass className={`h-3.5 w-3.5 ${autoRotate ? "animate-spin" : ""}`} />
-              <span>360° Rotate</span>
+              <Compass className={`h-3 w-3 ${autoRotate ? "animate-spin" : ""}`} />
+              <span>360°</span>
             </Button>
           </div>
         </div>
