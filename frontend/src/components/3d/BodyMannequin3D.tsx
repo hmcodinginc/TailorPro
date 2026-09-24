@@ -17,24 +17,31 @@ import {
   formatMeasurementValue,
 } from "./measurementDimensions"
 import {
+  GARMENT_COLOR_OPTIONS,
+  colorToHexStr,
+  colorToNumber,
+  findColorOption,
+} from "./garmentColors"
+import {
   RotateCcw,
   Sparkles,
   Compass,
   Shirt,
   Scissors,
   Eye,
+  Palette,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-
-export const BESPOKE_SWATCHES = [
-  { label: "Crisp Oxford White", color: 0xf8fafc, bg: "#f8fafc", border: "#cbd5e1" },
-  { label: "Savile Row Navy", color: 0x1e3a8a, bg: "#1e3a8a", border: "#172554" },
-  { label: "Tailored Sky Blue", color: 0x7dd3fc, bg: "#7dd3fc", border: "#38bdf8" },
-  { label: "Charcoal Melange", color: 0x374151, bg: "#374151", border: "#1f2937" },
-  { label: "Burgundy Wine", color: 0x881337, bg: "#881337", border: "#4c0519" },
-  { label: "Camel Khaki", color: 0xd97706, bg: "#d97706", border: "#92400e" },
-]
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export interface BodyMannequin3DProps {
   gender?: "Men" | "Women"
@@ -46,8 +53,10 @@ export interface BodyMannequin3DProps {
   fitType?: FitType
   themeStyle?: ThemeStyle
   fabricType?: FabricType
-  garmentColor?: number
+  garmentColor?: number | string
   isOpaqueGarment?: boolean
+  onGarmentColorChange?: (colorHex: string) => void
+  onGarmentTypeChange?: (garmentType: string) => void
   showGuides?: boolean
   showGarment?: boolean
   showStand?: boolean
@@ -73,8 +82,10 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       fitType = "regular",
       themeStyle = "tailor",
       fabricType: fabricTypeProp = "cotton",
-      garmentColor: garmentColorProp = 0xf8fafc,
+      garmentColor: garmentColorProp = "#1e3a8a",
       isOpaqueGarment: isOpaqueGarmentProp = true,
+      onGarmentColorChange,
+      onGarmentTypeChange,
       showGuides = true,
       showGarment = true,
       showStand = true,
@@ -112,8 +123,24 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
 
     // Display mode: "fitted" (clothed on form) | "dressform" (pure couture form) | "xray" (semi-transparent)
     const [displayMode, setDisplayMode] = useState<"fitted" | "dressform" | "xray">("fitted")
-    const [currentColor, setCurrentColor] = useState<number>(garmentColorProp)
+    const [currentColor, setCurrentColor] = useState<number>(colorToNumber(garmentColorProp))
     const [currentFabric, setCurrentFabric] = useState<FabricType>(fabricTypeProp)
+
+    // Sync garmentColor from prop if changed externally
+    useEffect(() => {
+      if (garmentColorProp !== undefined && garmentColorProp !== null) {
+        const num = colorToNumber(garmentColorProp)
+        setCurrentColor(num)
+      }
+    }, [garmentColorProp])
+
+    const handleColorSelect = (hex: string) => {
+      const num = colorToNumber(hex)
+      setCurrentColor(num)
+      if (onGarmentColorChange) {
+        onGarmentColorChange(hex)
+      }
+    }
 
     // Convert and normalize raw measurement record into numerical values (in inches)
     const parseMeasurements = useCallback((): Record<string, number> => {
@@ -621,24 +648,98 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
             </button>
           </div>
 
-          {/* Quick Bespoke Fabric Color Swatches */}
+          {/* Garment Color Dropdown Menu */}
           {displayMode !== "dressform" && (
-            <div className="flex items-center gap-1 bg-background/85 backdrop-blur-md p-1 rounded-lg border border-border/70 shadow-2xs">
-              <span className="text-[9px] font-semibold text-muted-foreground ml-0.5 mr-1">Fabric:</span>
-              {BESPOKE_SWATCHES.map((swatch) => (
-                <button
-                  key={swatch.label}
-                  type="button"
-                  title={swatch.label}
-                  onClick={() => setCurrentColor(swatch.color)}
-                  style={{ backgroundColor: swatch.bg, borderColor: swatch.border }}
-                  className={`w-3.5 h-3.5 rounded-full border transition-transform ${
-                    currentColor === swatch.color
-                      ? "ring-2 ring-primary ring-offset-1 scale-110"
-                      : "opacity-85 hover:opacity-100 hover:scale-105"
-                  }`}
-                />
-              ))}
+            <div className="flex items-center gap-1.5 bg-background/95 backdrop-blur-md p-1 rounded-lg border border-border/80 shadow-xs">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[11px] font-semibold gap-1.5 hover:bg-accent flex items-center"
+                    title="Select Garment Color"
+                  >
+                    <span
+                      className="w-3.5 h-3.5 rounded-full border shadow-2xs shrink-0"
+                      style={{
+                        backgroundColor: colorToHexStr(currentColor),
+                        borderColor: findColorOption(currentColor)?.border || "rgba(0,0,0,0.2)",
+                      }}
+                    />
+                    <Palette className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-[85px] truncate font-medium">
+                      {findColorOption(currentColor)?.name || colorToHexStr(currentColor)}
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto p-1.5 text-xs">
+                  <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>Garment Color</span>
+                    <span className="font-mono text-[9px] lowercase">{colorToHexStr(currentColor)}</span>
+                  </DropdownMenuLabel>
+                  
+                  {/* Custom Color Picker Row */}
+                  <div className="flex items-center justify-between p-2 mb-1 bg-muted/40 rounded-md border border-border/60">
+                    <span className="text-[11px] font-medium text-foreground">Custom Color:</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={colorToHexStr(currentColor)}
+                        onChange={(e) => handleColorSelect(e.target.value)}
+                        className="w-7 h-7 rounded cursor-pointer border border-border bg-transparent"
+                        title="Pick custom color"
+                      />
+                      <span className="font-mono text-[10px] text-muted-foreground uppercase">{colorToHexStr(currentColor)}</span>
+                    </div>
+                  </div>
+
+                  <DropdownMenuSeparator />
+
+                  {/* Curated Color Options Palette */}
+                  <div className="grid grid-cols-1 gap-0.5 mt-1">
+                    {GARMENT_COLOR_OPTIONS.map((opt) => {
+                      const isSelected = currentColor === opt.colorNum || colorToHexStr(currentColor).toLowerCase() === opt.hex.toLowerCase()
+                      return (
+                        <DropdownMenuItem
+                          key={opt.hex}
+                          onClick={() => handleColorSelect(opt.hex)}
+                          className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-xs ${
+                            isSelected ? "bg-primary/10 text-primary font-bold" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border shrink-0 shadow-2xs"
+                              style={{ backgroundColor: opt.hex, borderColor: opt.border || "#94a3b8" }}
+                            />
+                            <span>{opt.name}</span>
+                          </div>
+                          <span className="text-[10px] font-mono text-muted-foreground uppercase">{opt.hex}</span>
+                        </DropdownMenuItem>
+                      )
+                    })}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Quick mini-swatches for top 4 popular colors */}
+              <div className="flex items-center gap-1 pl-1 border-l border-border/60">
+                {GARMENT_COLOR_OPTIONS.slice(0, 4).map((opt) => (
+                  <button
+                    key={opt.hex}
+                    type="button"
+                    title={opt.name}
+                    onClick={() => handleColorSelect(opt.hex)}
+                    style={{ backgroundColor: opt.hex, borderColor: opt.border || "#cbd5e1" }}
+                    className={`w-3.5 h-3.5 rounded-full border transition-transform ${
+                      currentColor === opt.colorNum
+                        ? "ring-2 ring-primary ring-offset-1 scale-110"
+                        : "opacity-85 hover:opacity-100 hover:scale-105"
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>

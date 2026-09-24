@@ -159,15 +159,26 @@ export default function CustomerDetail() {
               ({measurements.length})
             </span>
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-xs font-semibold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-            onClick={() => navigate(`/measurements`)}
-          >
-            <Ruler className="h-3.5 w-3.5 text-indigo-600" />
-            Manage Measurements
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-semibold border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
+              onClick={() => navigate(`/measurements/3d?customer_id=${customer.id}`)}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+              3D Studio
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-semibold border-slate-200 text-slate-700 hover:bg-slate-50"
+              onClick={() => navigate(`/measurements`)}
+            >
+              <Ruler className="h-3.5 w-3.5 text-slate-600" />
+              Manage All
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {measurements.length === 0 && (
@@ -187,7 +198,7 @@ export default function CustomerDetail() {
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{template?.emoji ?? "📏"}</span>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-sm">
                           {template?.label ?? m.garment_type}
                         </p>
@@ -201,6 +212,15 @@ export default function CustomerDetail() {
                         >
                           {gender === "Women" ? "Women 👩" : "Men 👨"}
                         </Badge>
+                        {m.color && (
+                          <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full border border-black/20"
+                              style={{ backgroundColor: m.color }}
+                            />
+                            <span className="text-muted-foreground">{m.color}</span>
+                          </div>
+                        )}
                       </div>
                       {m.created_at && (
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -214,6 +234,22 @@ export default function CustomerDetail() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-semibold border-indigo-200 text-indigo-700 bg-indigo-50/40 hover:bg-indigo-100"
+                      onClick={() => {
+                        const params = new URLSearchParams()
+                        params.set("customer_id", String(customer.id))
+                        params.set("record_id", String(m.id))
+                        if (m.garment_type) params.set("garment", m.garment_type)
+                        if (m.gender) params.set("gender", m.gender)
+                        navigate(`/measurements/3d?${params.toString()}`)
+                      }}
+                    >
+                      <Sparkles className="mr-1 h-3.5 w-3.5 text-indigo-600" />
+                      3D Studio
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

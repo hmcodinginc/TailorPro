@@ -62,8 +62,10 @@ import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 
+import { findColorOption, colorToHexStr } from "@/components/3d/garmentColors"
+
 type FormValues = Record<string, string>
-const emptyBase: FormValues = { customer_id: "", gender: "Men", garment_type: "", notes: "" }
+const emptyBase: FormValues = { customer_id: "", gender: "Men", garment_type: "", notes: "", color: "#1e3a8a" }
 
 function buildFormData(form: FormValues, file: File | null): FormData {
   const fd = new FormData()
@@ -111,6 +113,7 @@ function MeasurementForm({
       gender: selectedGender,
       garment_type: "",
       notes: form.notes,
+      color: form.color || "#1e3a8a",
     })
     setActiveField(null)
   }
@@ -136,6 +139,7 @@ function MeasurementForm({
       gender: form.gender || "Men",
       garment_type: value,
       notes: prefilledFields.notes || form.notes || "",
+      color: prefilledFields.color || form.color || "#1e3a8a",
     })
     setActiveField(null)
   }
@@ -161,6 +165,7 @@ function MeasurementForm({
       gender: form.gender || "Men",
       garment_type: form.garment_type,
       notes: prefilledFields.notes || form.notes || "",
+      color: prefilledFields.color || form.color || "#1e3a8a",
     })
   }
 
@@ -307,6 +312,8 @@ function MeasurementForm({
               gender={activeGender}
               garmentType={form.garment_type}
               activeField={activeField}
+              garmentColor={form.color || "#1e3a8a"}
+              onGarmentColorChange={(c) => setForm({ ...form, color: c })}
               onSelectField={(f) => {
                 setActiveField(f)
                 const targetId = `field-input-${f}`
@@ -441,6 +448,7 @@ export default function Measurements() {
       stringified[k] = v != null ? String(v) : ""
     })
     if (!stringified.gender) stringified.gender = "Men"
+    stringified.color = m.color || "#1e3a8a"
     setEditForm(stringified)
     setEditOpen(true)
   }
@@ -479,40 +487,51 @@ export default function Measurements() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Garment Measurements</h1>
           <p className="text-sm text-muted-foreground">
-            Manage customer tailoring specifications, body measurements, and printable PDF sheets.
+            Manage customer tailoring specifications, body measurements, and 3D studio visualizations.
           </p>
         </div>
 
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="shrink-0 font-semibold shadow-sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Measurement Record
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-6">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-lg">
-                <Ruler className="h-5 w-5 text-indigo-600" />
-                Record Garment Measurements
-              </DialogTitle>
-            </DialogHeader>
-            <MeasurementForm
-              form={addForm}
-              setForm={setAddForm}
-              file={addFile}
-              setFile={setAddFile}
-              onSubmit={(e) => {
-                e.preventDefault()
-                addMutation.mutate(buildFormData(addForm, addFile))
-              }}
-              isPending={addMutation.isPending}
-              submitLabel="Save Measurements"
-              customers={customers}
-              measurements={measurements}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/measurements/3d")}
+            className="shrink-0 font-semibold border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 shadow-xs"
+          >
+            <Sparkles className="mr-2 h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            3D Studio
+          </Button>
+
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="shrink-0 font-semibold shadow-sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Record
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-6">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <Ruler className="h-5 w-5 text-indigo-600" />
+                  Record Garment Measurements
+                </DialogTitle>
+              </DialogHeader>
+              <MeasurementForm
+                form={addForm}
+                setForm={setAddForm}
+                file={addFile}
+                setFile={setAddFile}
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  addMutation.mutate(buildFormData(addForm, addFile))
+                }}
+                isPending={addMutation.isPending}
+                submitLabel="Save Measurements"
+                customers={customers}
+                measurements={measurements}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -600,23 +619,39 @@ export default function Measurements() {
                       )}
                     </div>
 
-                    {/* Gender Badge */}
-                    <Badge
-                      variant="outline"
-                      className={
-                        gender === "Women"
-                          ? "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/50 dark:text-pink-300 dark:border-pink-800"
-                          : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"
-                      }
-                    >
-                      {gender === "Women" ? "Women 👩" : "Men 👨"}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      {/* Gender Badge */}
+                      <Badge
+                        variant="outline"
+                        className={
+                          gender === "Women"
+                            ? "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/50 dark:text-pink-300 dark:border-pink-800"
+                            : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"
+                        }
+                      >
+                        {gender === "Women" ? "Women 👩" : "Men 👨"}
+                      </Badge>
+                    </div>
                   </div>
 
-                  {/* Garment Title */}
-                  <div className="mt-2.5 flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                    <span className="text-base">{template?.emoji || "👗"}</span>
-                    <span>{template?.label || m.garment_type}</span>
+                  {/* Garment Title and Color Swatch */}
+                  <div className="mt-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                      <span className="text-base">{template?.emoji || "👗"}</span>
+                      <span>{template?.label || m.garment_type}</span>
+                    </div>
+
+                    {m.color && (
+                      <div className="flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border">
+                        <span
+                          className="w-3 h-3 rounded-full border border-black/20 shadow-xs"
+                          style={{ backgroundColor: m.color }}
+                        />
+                        <span className="text-[11px] text-muted-foreground">
+                          {findColorOption(m.color)?.name || m.color}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
 
@@ -647,9 +682,28 @@ export default function Measurements() {
                 </CardContent>
               </div>
 
-              {/* Card Actions Footer: Edit & Download PDF side-by-side */}
+              {/* Card Actions Footer: 3D Studio, Edit, & Download PDF */}
               <div className="p-3 border-t bg-muted/20 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 w-full">
+                <div className="flex items-center gap-1.5 w-full">
+                  {/* 3D Studio Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs font-semibold border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 shadow-xs"
+                    onClick={() => {
+                      const params = new URLSearchParams()
+                      if (m.customer_id) params.set("customer_id", String(m.customer_id))
+                      if (m.id) params.set("record_id", String(m.id))
+                      if (m.garment_type) params.set("garment", m.garment_type)
+                      if (m.gender) params.set("gender", m.gender)
+                      navigate(`/measurements/3d?${params.toString()}`)
+                    }}
+                    title="Open in 3D Fitting Studio"
+                  >
+                    <Sparkles className="mr-1 h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    3D View
+                  </Button>
+
                   {/* Edit Button */}
                   <Button
                     variant="outline"
@@ -658,10 +712,10 @@ export default function Measurements() {
                     onClick={() => openEdit(m)}
                   >
                     <Pencil className="mr-1.5 h-3.5 w-3.5 text-slate-600" />
-                    Edit ✏️
+                    Edit 
                   </Button>
 
-                  {/* Download PDF Button right beside Edit */}
+                  {/* Download PDF Button */}
                   <Button
                     variant="default"
                     size="sm"
@@ -669,7 +723,7 @@ export default function Measurements() {
                     onClick={() => handleDownloadPDF(m, customer)}
                   >
                     <Download className="mr-1.5 h-3.5 w-3.5" />
-                    Download PDF 📄
+                    PDF
                   </Button>
 
                   {/* Dropdown Menu for Delete */}
@@ -681,6 +735,19 @@ export default function Measurements() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const params = new URLSearchParams()
+                          if (m.customer_id) params.set("customer_id", String(m.customer_id))
+                          if (m.id) params.set("record_id", String(m.id))
+                          if (m.garment_type) params.set("garment", m.garment_type)
+                          if (m.gender) params.set("gender", m.gender)
+                          navigate(`/measurements/3d?${params.toString()}`)
+                        }}
+                      >
+                        <Sparkles className="mr-2 h-4 w-4 text-indigo-600" />
+                        Open in 3D Studio
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDownloadPDF(m, customer)}>
                         <Download className="mr-2 h-4 w-4" />
                         Download PDF

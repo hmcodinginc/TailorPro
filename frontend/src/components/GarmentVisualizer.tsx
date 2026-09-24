@@ -9,6 +9,19 @@ import { Badge } from "@/components/ui/badge"
 import { Sparkles, Info, Eye, Box, Compass, Layers, RotateCcw } from "lucide-react"
 import { BodyMannequin3D } from "./3d/BodyMannequin3D"
 import { Button } from "@/components/ui/button"
+import {
+  GARMENT_COLOR_OPTIONS,
+  colorToHexStr,
+  findColorOption,
+} from "./3d/garmentColors"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export interface GarmentVisualizerProps {
   gender?: string
@@ -20,6 +33,8 @@ export interface GarmentVisualizerProps {
   hideHelperText?: boolean
   initialViewMode?: "2d" | "3d"
   allow3DToggle?: boolean
+  garmentColor?: string | number
+  onGarmentColorChange?: (colorHex: string) => void
 }
 
 export function GarmentVisualizer({
@@ -32,20 +47,30 @@ export function GarmentVisualizer({
   hideHelperText = false,
   initialViewMode = "3d",
   allow3DToggle = true,
+  garmentColor = "#1e3a8a",
+  onGarmentColorChange,
 }: GarmentVisualizerProps) {
   const [viewMode, setViewMode] = useState<"2d" | "3d">(initialViewMode)
   const [imageError, setImageError] = useState(false)
-  const normalizedGender = normalizeGender(gender)
+  const normalizedGender = normalizeGender(gender) as "Men" | "Women"
   const config: GarmentVisualConfig = getGarmentVisualConfig(normalizedGender, garmentType)
   const measurementMap = config.lines
+
+  const activeColorHex = colorToHexStr(fieldValues?.color || garmentColor || "#1e3a8a")
+
+  const handleColorChange = (hex: string) => {
+    if (onGarmentColorChange) {
+      onGarmentColorChange(hex)
+    }
+  }
 
   const expectedImageUrl = customImageSrc || config.imageSrc || getMeasurementImageUrl(normalizedGender, garmentType)
 
   return (
     <div className="w-full h-full min-h-[360px] flex flex-col items-center justify-between p-3.5 bg-muted/15 rounded-xl border border-border shadow-xs transition-all relative overflow-hidden">
       
-      {/* Header Info: Gender, Title & 2D / 3D Mode Switcher */}
-      <div className="w-full flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border/60 z-10">
+      {/* Header Info: Gender, Title, Color & 2D / 3D Mode Switcher */}
+      <div className="w-full flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border/60 z-10 flex-wrap">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-xs font-bold text-foreground truncate">
             {config.title || `${normalizedGender} ${garmentType}`}
@@ -62,35 +87,97 @@ export function GarmentVisualizer({
           </Badge>
         </div>
 
-        {/* 2D / 3D View Mode Toggle */}
-        {allow3DToggle && (
-          <div className="flex items-center bg-background/90 p-0.5 rounded-lg border border-border/80 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setViewMode("3d")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                viewMode === "3d"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Sparkles className="h-3 w-3" />
-              <span>3D Model</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("2d")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                viewMode === "2d"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Eye className="h-3 w-3" />
-              <span>2D Spec</span>
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Color Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[11px] font-semibold gap-1.5 bg-background shadow-2xs border-border"
+                title="Select 3D Garment Color"
+              >
+                <span
+                  className="w-3.5 h-3.5 rounded-full border shadow-2xs shrink-0"
+                  style={{
+                    backgroundColor: activeColorHex,
+                    borderColor: findColorOption(activeColorHex)?.border || "rgba(0,0,0,0.2)",
+                  }}
+                />
+                <span className="max-w-[70px] truncate hidden sm:inline text-[11px]">
+                  {findColorOption(activeColorHex)?.name || activeColorHex}
+                </span>
+                <span className="text-[10px] opacity-60">▼</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 max-h-72 overflow-y-auto p-1.5 text-xs">
+              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                <span>Garment Color</span>
+                <span className="font-mono text-[9px] lowercase">{activeColorHex}</span>
+              </DropdownMenuLabel>
+              <div className="flex items-center justify-between p-1.5 mb-1 bg-muted/40 rounded border">
+                <span className="text-[11px] font-medium">Custom Color:</span>
+                <input
+                  type="color"
+                  value={activeColorHex}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  className="w-6 h-6 rounded cursor-pointer border border-border bg-transparent"
+                />
+              </div>
+              <DropdownMenuSeparator />
+              <div className="grid grid-cols-1 gap-0.5 mt-1">
+                {GARMENT_COLOR_OPTIONS.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.hex}
+                    onClick={() => handleColorChange(opt.hex)}
+                    className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer text-xs ${
+                      activeColorHex.toLowerCase() === opt.hex.toLowerCase() ? "bg-primary/10 text-primary font-bold" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-3.5 h-3.5 rounded-full border shrink-0"
+                        style={{ backgroundColor: opt.hex, borderColor: opt.border || "#94a3b8" }}
+                      />
+                      <span>{opt.name}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase">{opt.hex}</span>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* 2D / 3D View Mode Toggle */}
+          {allow3DToggle && (
+            <div className="flex items-center bg-background/90 p-0.5 rounded-lg border border-border/80 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setViewMode("3d")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                  viewMode === "3d"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Sparkles className="h-3 w-3" />
+                <span>3D Model</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("2d")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                  viewMode === "2d"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Eye className="h-3 w-3" />
+                <span>2D Spec</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Visual Display Area */}
@@ -104,6 +191,8 @@ export function GarmentVisualizer({
               measurements={fieldValues}
               activeField={activeField}
               onSelectField={onSelectField}
+              garmentColor={activeColorHex}
+              onGarmentColorChange={handleColorChange}
               themeStyle="tailor"
               showGuides={true}
               showGarment={true}

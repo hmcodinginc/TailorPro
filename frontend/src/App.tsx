@@ -7,6 +7,7 @@ import Dashboard    from "./pages/Dashboard"
 import Customers    from "./pages/Customers"
 import CustomerDetail from "./pages/CustomerDetail"
 import Measurements from "./pages/Measurements"
+import MeasurementStudio3D from "./pages/MeasurementStudio3D"
 import Orders       from "./pages/Orders"
 import Auth         from "./pages/Auth"
 import Invoices     from "./pages/Invoices"
@@ -118,6 +119,18 @@ function AnimatedRoutes() {
         <Route path="/measurements" element={
           <ProtectedRoute>
             <AppLayout><Measurements /></AppLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/measurements/3d" element={
+          <ProtectedRoute>
+            <AppLayout><MeasurementStudio3D /></AppLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/measurements/studio" element={
+          <ProtectedRoute>
+            <AppLayout><MeasurementStudio3D /></AppLayout>
           </ProtectedRoute>
         } />
 

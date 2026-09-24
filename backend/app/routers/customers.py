@@ -45,6 +45,12 @@ def delete_customer(id: int, db: Session = Depends(get_db), current_business: mo
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
+    # Clean up dependent records to avoid Foreign Key constraint failure
+    db.query(models.Payment).filter(models.Payment.customer_id == id, models.Payment.business_id == current_business.id).delete(synchronize_session=False)
+    db.query(models.Invoice).filter(models.Invoice.customer_id == id, models.Invoice.business_id == current_business.id).delete(synchronize_session=False)
+    db.query(models.Order).filter(models.Order.customer_id == id, models.Order.business_id == current_business.id).delete(synchronize_session=False)
+    db.query(models.Measurement).filter(models.Measurement.customer_id == id, models.Measurement.business_id == current_business.id).delete(synchronize_session=False)
+
     db.delete(customer)
     db.commit()
     return {"message": "Customer deleted"}

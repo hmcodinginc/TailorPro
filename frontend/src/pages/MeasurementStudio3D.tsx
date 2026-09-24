@@ -45,6 +45,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Slider } from "@/components/ui/slider"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { BodyMannequin3D, BodyMannequin3DRef } from "@/components/3d/BodyMannequin3D"
@@ -60,6 +68,11 @@ import {
   formatMeasurementValue,
 } from "@/components/3d/measurementDimensions"
 import { ThemeStyle } from "@/components/3d/mannequinGeometry"
+import {
+  GARMENT_COLOR_OPTIONS,
+  colorToHexStr,
+  findColorOption,
+} from "@/components/3d/garmentColors"
 
 import { FabricType } from "@/components/3d/fabricTextures"
 import {
@@ -68,7 +81,7 @@ import {
   addMeasurement,
   updateMeasurement,
 } from "@/lib/api"
-import { findGarmentTemplate, garmentsMatch } from "@/lib/garments"
+import { findGarmentTemplate, garmentsMatch, getGarmentsByGender } from "@/lib/garments"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 
@@ -92,10 +105,8 @@ export default function MeasurementStudio3D() {
   const [unit, setUnit] = useState<UnitType>("inches")
   const [fitType, setFitType] = useState<FitType>("regular")
   const [themeStyle, setThemeStyle] = useState<ThemeStyle>("tailor")
-  const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>("human")
-  const [skinTone, setSkinTone] = useState<SkinTone>("medium")
   const [fabricType, setFabricType] = useState<FabricType>("cotton")
-  const [garmentColor, setGarmentColor] = useState<number>(0x2563eb)
+  const [garmentColor, setGarmentColor] = useState<string>("#1e3a8a")
   const [isOpaqueGarment, setIsOpaqueGarment] = useState<boolean>(true)
   const [activeField, setActiveField] = useState<string | null>("chest")
   const [activeTab, setActiveTab] = useState<"upper" | "lower" | "overall">("upper")
@@ -139,6 +150,7 @@ export default function MeasurementStudio3D() {
         if (match.gender) setGender(match.gender === "Women" ? "Women" : "Men")
         if (match.garment_type) setGarmentType(match.garment_type)
         if (match.notes) setNotes(match.notes)
+        if (match.color) setGarmentColor(match.color)
 
         const loaded: Record<string, number> = {}
         MEASUREMENT_FIELDS.forEach((f) => {
@@ -163,6 +175,7 @@ export default function MeasurementStudio3D() {
       if (match) {
         setEditingRecordId(match.id)
         if (match.notes) setNotes(match.notes)
+        if (match.color) setGarmentColor(match.color)
         const loaded: Record<string, number> = {}
         MEASUREMENT_FIELDS.forEach((f) => {
           if (match[f.key] != null && match[f.key] !== "") {
@@ -203,6 +216,7 @@ export default function MeasurementStudio3D() {
       fd.append("garment_type", garmentType)
       fd.append("gender", gender)
       if (notes) fd.append("notes", notes)
+      if (garmentColor) fd.append("color", colorToHexStr(garmentColor))
 
       Object.entries(measurements).forEach(([k, v]) => {
         if (v !== undefined && v !== null && !isNaN(v)) {
@@ -358,7 +372,7 @@ export default function MeasurementStudio3D() {
         </div>
 
         {/* Customer & Garment Selector Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-card p-3 rounded-xl border shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-card p-3 rounded-xl border shadow-xs">
           
           {/* Customer Selector */}
           <div className="space-y-1">
@@ -413,7 +427,7 @@ export default function MeasurementStudio3D() {
 
           {/* Garment Preset */}
           <div className="space-y-1">
-            <Label className="text-xs font-semibold">Garment Preset</Label>
+            <Label className="text-xs font-semibold">Garment Type</Label>
             <Select value={garmentType} onValueChange={setGarmentType}>
               <SelectTrigger className="h-9 text-xs font-medium">
                 <SelectValue placeholder="Select garment..." />
@@ -426,6 +440,73 @@ export default function MeasurementStudio3D() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Garment Color Dropdown */}
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold flex items-center justify-between">
+              <span>Garment Color</span>
+              <span className="font-mono text-[10px] text-muted-foreground">{colorToHexStr(garmentColor)}</span>
+            </Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full h-9 justify-between text-xs px-3 font-medium bg-background border-input shadow-xs"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <span
+                      className="w-4 h-4 rounded-full border shadow-2xs shrink-0"
+                      style={{
+                        backgroundColor: colorToHexStr(garmentColor),
+                        borderColor: findColorOption(garmentColor)?.border || "rgba(0,0,0,0.2)",
+                      }}
+                    />
+                    <span className="truncate">{findColorOption(garmentColor)?.name || colorToHexStr(garmentColor)}</span>
+                  </div>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 max-h-72 overflow-y-auto p-1.5 text-xs">
+                <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>Select Color</span>
+                  <span className="font-mono text-[9px] lowercase">{colorToHexStr(garmentColor)}</span>
+                </DropdownMenuLabel>
+                <div className="flex items-center justify-between p-2 mb-1 bg-muted/40 rounded-md border border-border/60">
+                  <span className="text-[11px] font-medium text-foreground">Custom Color:</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={colorToHexStr(garmentColor)}
+                      onChange={(e) => setGarmentColor(e.target.value)}
+                      className="w-7 h-7 rounded cursor-pointer border border-border bg-transparent"
+                    />
+                    <span className="font-mono text-[10px] text-muted-foreground uppercase">{colorToHexStr(garmentColor)}</span>
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
+                <div className="grid grid-cols-1 gap-0.5 mt-1">
+                  {GARMENT_COLOR_OPTIONS.map((opt) => (
+                    <DropdownMenuItem
+                      key={opt.hex}
+                      onClick={() => setGarmentColor(opt.hex)}
+                      className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-xs ${
+                        colorToHexStr(garmentColor).toLowerCase() === opt.hex.toLowerCase() ? "bg-primary/10 text-primary font-bold" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border shrink-0"
+                          style={{ backgroundColor: opt.hex, borderColor: opt.border || "#94a3b8" }}
+                        />
+                        <span>{opt.name}</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-muted-foreground uppercase">{opt.hex}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Fit Silhouette Allowance */}
@@ -494,16 +575,11 @@ export default function MeasurementStudio3D() {
                 unit={unit}
                 fitType={fitType}
                 themeStyle={themeStyle}
-                avatarStyle={avatarStyle}
-                skinTone={skinTone}
                 fabricType={fabricType}
                 garmentColor={garmentColor}
-                isOpaqueGarment={isOpaqueGarment}
-                onAvatarStyleChange={setAvatarStyle}
-                onSkinToneChange={setSkinTone}
-                onFabricTypeChange={setFabricType}
                 onGarmentColorChange={setGarmentColor}
-                onOpaqueGarmentChange={setIsOpaqueGarment}
+                onGarmentTypeChange={setGarmentType}
+                isOpaqueGarment={isOpaqueGarment}
                 showGuides={showGuides}
                 showGarment={showGarment}
                 showStand={showStand}
@@ -517,52 +593,31 @@ export default function MeasurementStudio3D() {
               
               {/* Studio Materials & Model Style */}
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-muted-foreground font-semibold text-[11px] mr-0.5">Model:</span>
+                <span className="text-muted-foreground font-semibold text-[11px] mr-0.5">Mannequin:</span>
                 <Button
-                  variant={avatarStyle === "human" ? "default" : "outline"}
+                  variant={themeStyle === "tailor" ? "default" : "outline"}
                   size="sm"
                   className="h-7 px-2.5 text-[11px] font-bold"
-                  onClick={() => setAvatarStyle("human")}
+                  onClick={() => setThemeStyle("tailor")}
                 >
-                  🧍 Human Avatar
+                  Classic Linen
                 </Button>
                 <Button
-                  variant={avatarStyle === "mannequin" ? "default" : "outline"}
+                  variant={themeStyle === "slate" ? "default" : "outline"}
                   size="sm"
                   className="h-7 px-2.5 text-[11px]"
-                  onClick={() => setAvatarStyle("mannequin")}
+                  onClick={() => setThemeStyle("slate")}
                 >
-                  👗 Dress Form
+                  Slate Dark
                 </Button>
-
-                {avatarStyle === "mannequin" && (
-                  <div className="flex items-center gap-1 pl-1 border-l">
-                    <Button
-                      variant={themeStyle === "tailor" ? "secondary" : "ghost"}
-                      size="sm"
-                      className="h-6 px-1.5 text-[10px]"
-                      onClick={() => setThemeStyle("tailor")}
-                    >
-                      Classic
-                    </Button>
-                    <Button
-                      variant={themeStyle === "slate" ? "secondary" : "ghost"}
-                      size="sm"
-                      className="h-6 px-1.5 text-[10px]"
-                      onClick={() => setThemeStyle("slate")}
-                    >
-                      Slate
-                    </Button>
-                    <Button
-                      variant={themeStyle === "ivory" ? "secondary" : "ghost"}
-                      size="sm"
-                      className="h-6 px-1.5 text-[10px]"
-                      onClick={() => setThemeStyle("ivory")}
-                    >
-                      Ivory
-                    </Button>
-                  </div>
-                )}
+                <Button
+                  variant={themeStyle === "ivory" ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 px-2.5 text-[11px]"
+                  onClick={() => setThemeStyle("ivory")}
+                >
+                  Ivory Silk
+                </Button>
               </div>
 
               {/* Element Toggles */}

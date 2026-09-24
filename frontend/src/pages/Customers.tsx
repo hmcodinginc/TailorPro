@@ -164,8 +164,7 @@ export default function Customers() {
     updateMut.mutate({ id: editingCustomer.id, data: editForm });
   };
 
-  const handleDelete = (id: number, name: string) => {
-    if (!window.confirm(`Remove ${name}?`)) return;
+  const handleDelete = (id: number) => {
     deleteMut.mutate(id);
   };
 
@@ -368,7 +367,7 @@ export default function Customers() {
                         <Edit2 className="h-3.5 w-3.5" /> Edit Profile
                       </DropdownMenuItem>
                       <DropdownMenuItem className="flex items-center gap-2 text-sm text-red-600 focus:text-red-600"
-                        onClick={() => handleDelete(c.id, c.name)}>
+                        onClick={() => handleDelete(c.id)}>
                         <Trash2 className="h-3.5 w-3.5" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
