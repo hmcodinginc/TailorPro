@@ -262,28 +262,63 @@ function MeasurementForm({
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1">
-              {template.fields.map((field) => (
-                <div key={field.key} className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{field.label}</Label>
-                  <Input
-                    placeholder='e.g. 36"'
-                    value={form[field.key] ?? ""}
-                    onFocus={() => setActiveField(field.key)}
-                    onBlur={() => setActiveField(null)}
-                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                    className="bg-background h-9 text-sm"
-                  />
-                </div>
-              ))}
+              {template.fields.map((field) => {
+                const isFieldActive =
+                  activeField === field.key ||
+                  ((activeField === "chest" || activeField === "bust") && (field.key === "bust" || field.key === "chest")) ||
+                  ((activeField === "neck" || activeField === "collar") && (field.key === "collar" || field.key === "neck")) ||
+                  ((activeField === "wrist" || activeField === "sleeve_round") && (field.key === "sleeve_round" || field.key === "wrist"))
+
+                return (
+                  <div
+                    key={field.key}
+                    className={`space-y-1 p-1 rounded-md transition-all ${
+                      isFieldActive ? "bg-indigo-50/70 dark:bg-indigo-950/40 ring-1 ring-indigo-500/40" : ""
+                    }`}
+                  >
+                    <Label
+                      htmlFor={`field-input-${field.key}`}
+                      className={`text-xs transition-colors flex items-center justify-between ${
+                        isFieldActive ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-muted-foreground"
+                      }`}
+                    >
+                      <span>{field.label}</span>
+                      {isFieldActive && <span className="text-[9px] text-indigo-600 font-mono">● Active</span>}
+                    </Label>
+                    <Input
+                      id={`field-input-${field.key}`}
+                      placeholder='e.g. 36"'
+                      value={form[field.key] ?? ""}
+                      onFocus={() => setActiveField(field.key)}
+                      onBlur={() => setActiveField(null)}
+                      onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                      className={`bg-background h-9 text-sm transition-all ${
+                        isFieldActive ? "border-indigo-600 ring-2 ring-indigo-500/20 font-semibold" : ""
+                      }`}
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
           
-          <div className="rounded-lg min-h-[340px]">
+          <div className="rounded-lg min-h-[380px] h-full flex flex-col">
             <GarmentVisualizer
               gender={activeGender}
               garmentType={form.garment_type}
               activeField={activeField}
-              onSelectField={(f) => setActiveField(f)}
+              onSelectField={(f) => {
+                setActiveField(f)
+                const targetId = `field-input-${f}`
+                const el = document.getElementById(targetId)
+                if (el) {
+                  el.focus()
+                } else if (f === "chest" || f === "bust") {
+                  document.getElementById("field-input-bust")?.focus() || document.getElementById("field-input-chest")?.focus()
+                } else if (f === "neck" || f === "collar") {
+                  document.getElementById("field-input-collar")?.focus() || document.getElementById("field-input-neck")?.focus()
+                }
+              }}
               fieldValues={form}
             />
           </div>
