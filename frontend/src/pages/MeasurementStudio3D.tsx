@@ -60,12 +60,7 @@ import {
   formatMeasurementValue,
 } from "@/components/3d/measurementDimensions"
 import { ThemeStyle } from "@/components/3d/mannequinGeometry"
-import {
-  AvatarStyle,
-  SkinTone,
-  SKIN_TONES,
-  FABRIC_COLORS,
-} from "@/components/3d/realisticHumanGeometry"
+
 import { FabricType } from "@/components/3d/fabricTextures"
 import {
   getCustomers,
