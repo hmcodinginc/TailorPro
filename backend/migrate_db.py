@@ -47,6 +47,7 @@ def migrate():
         add_column_if_missing("measurements", "bicep", "bicep FLOAT")
         add_column_if_missing("measurements", "wrist", "wrist FLOAT")
         add_column_if_missing("measurements", "height", "height FLOAT")
+        add_column_if_missing("measurements", "color", "color VARCHAR")
 
         # Invoices sequential number column
         add_column_if_missing("invoices", "invoice_number", "invoice_number VARCHAR")

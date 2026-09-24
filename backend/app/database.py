@@ -31,7 +31,10 @@ elif DATABASE_URL.startswith("postgres://"):
         1
     )
 
-from sqlalchemy import event
+from sqlalchemy import event, text
+import logging
+
+logger = logging.getLogger(__name__)
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
@@ -47,10 +50,50 @@ if DATABASE_URL.startswith("sqlite"):
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
 else:
-    engine = create_engine(
-        DATABASE_URL,
-        pool_pre_ping=True
-    )
+    connect_args = {}
+    if "postgresql" in DATABASE_URL:
+        connect_args = {
+            "connect_timeout": 5,
+            "sslmode": "require",
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 5
+        }
+    
+    # In development, check if remote DB is reachable; fallback gracefully to SQLite if unreachable
+    if ENVIRONMENT != "production":
+        try:
+            temp_engine = create_engine(
+                DATABASE_URL,
+                pool_pre_ping=True,
+                pool_recycle=300,
+                connect_args=connect_args
+            )
+            with temp_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            engine = temp_engine
+            print("[INFO] Connected successfully to remote PostgreSQL database.")
+        except Exception as e:
+            print(f"[WARNING] Remote PostgreSQL connection failed ({e}). Falling back to local SQLite './tms.db' for development.")
+            DATABASE_URL = "sqlite:///./tms.db"
+            engine = create_engine(
+                DATABASE_URL,
+                connect_args={"check_same_thread": False}
+            )
+            @event.listens_for(engine, "connect")
+            def set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                cursor.close()
+    else:
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            connect_args=connect_args
+        )
 
 SessionLocal = sessionmaker(
     autocommit=False,

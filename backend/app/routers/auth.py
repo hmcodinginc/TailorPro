@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from ..database import get_db
 from .. import models, schemas
 from ..core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, create_reset_token, SECRET_KEY, ALGORITHM
@@ -30,7 +31,8 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         if len(user.password) < 6:
             raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
             
-        existing_user = db.query(models.User).filter(models.User.email == user.email).first()
+        normalized_email = user.email.strip().lower()
+        existing_user = db.query(models.User).filter(func.lower(models.User.email) == normalized_email).first()
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already registered")
             
@@ -68,7 +70,7 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         is_first_user = (user_count == 0)
         
         new_user = models.User(
-            email=user.email,
+            email=normalized_email,
             password=get_password_hash(user.password),
             name=user.name,
             phone=user.phone,
@@ -112,7 +114,8 @@ def login(request: Request, user_credentials: schemas.UserLogin, db: Session = D
     client_ip = request.client.host if request.client else "unknown"
     check_rate_limit(client_ip)
     
-    user = db.query(models.User).filter(models.User.email == user_credentials.email).first()
+    login_email = user_credentials.email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == login_email).first()
     
     if not user or not verify_password(user_credentials.password, user.password):
         raise HTTPException(

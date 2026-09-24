@@ -113,6 +113,7 @@ class Measurement(Base):
     bicep         = Column(Float, nullable=True)
     wrist         = Column(Float, nullable=True)
     height        = Column(Float, nullable=True)
+    color         = Column(String, nullable=True)
     image         = Column(String, nullable=True)
     notes         = Column(String, nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
