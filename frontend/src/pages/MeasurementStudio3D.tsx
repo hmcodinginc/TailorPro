@@ -61,6 +61,13 @@ import {
 } from "@/components/3d/measurementDimensions"
 import { ThemeStyle } from "@/components/3d/mannequinGeometry"
 import {
+  AvatarStyle,
+  SkinTone,
+  SKIN_TONES,
+  FABRIC_COLORS,
+} from "@/components/3d/realisticHumanGeometry"
+import { FabricType } from "@/components/3d/fabricTextures"
+import {
   getCustomers,
   getMeasurements,
   addMeasurement,
@@ -90,6 +97,11 @@ export default function MeasurementStudio3D() {
   const [unit, setUnit] = useState<UnitType>("inches")
   const [fitType, setFitType] = useState<FitType>("regular")
   const [themeStyle, setThemeStyle] = useState<ThemeStyle>("tailor")
+  const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>("human")
+  const [skinTone, setSkinTone] = useState<SkinTone>("medium")
+  const [fabricType, setFabricType] = useState<FabricType>("cotton")
+  const [garmentColor, setGarmentColor] = useState<number>(0x2563eb)
+  const [isOpaqueGarment, setIsOpaqueGarment] = useState<boolean>(true)
   const [activeField, setActiveField] = useState<string | null>("chest")
   const [activeTab, setActiveTab] = useState<"upper" | "lower" | "overall">("upper")
   const [notes, setNotes] = useState<string>("")
@@ -487,6 +499,16 @@ export default function MeasurementStudio3D() {
                 unit={unit}
                 fitType={fitType}
                 themeStyle={themeStyle}
+                avatarStyle={avatarStyle}
+                skinTone={skinTone}
+                fabricType={fabricType}
+                garmentColor={garmentColor}
+                isOpaqueGarment={isOpaqueGarment}
+                onAvatarStyleChange={setAvatarStyle}
+                onSkinToneChange={setSkinTone}
+                onFabricTypeChange={setFabricType}
+                onGarmentColorChange={setGarmentColor}
+                onOpaqueGarmentChange={setIsOpaqueGarment}
                 showGuides={showGuides}
                 showGarment={showGarment}
                 showStand={showStand}
@@ -498,41 +520,54 @@ export default function MeasurementStudio3D() {
             {/* 3D Viewport Controls Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-card rounded-xl border text-xs shadow-xs">
               
-              {/* Studio Materials Style */}
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground font-semibold text-[11px] mr-1">Style:</span>
+              {/* Studio Materials & Model Style */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-muted-foreground font-semibold text-[11px] mr-0.5">Model:</span>
                 <Button
-                  variant={themeStyle === "tailor" ? "default" : "outline"}
+                  variant={avatarStyle === "human" ? "default" : "outline"}
                   size="sm"
-                  className="h-7 px-2 text-[11px]"
-                  onClick={() => setThemeStyle("tailor")}
+                  className="h-7 px-2.5 text-[11px] font-bold"
+                  onClick={() => setAvatarStyle("human")}
                 >
-                  Dress Form
+                  🧍 Human Avatar
                 </Button>
                 <Button
-                  variant={themeStyle === "slate" ? "default" : "outline"}
+                  variant={avatarStyle === "mannequin" ? "default" : "outline"}
                   size="sm"
-                  className="h-7 px-2 text-[11px]"
-                  onClick={() => setThemeStyle("slate")}
+                  className="h-7 px-2.5 text-[11px]"
+                  onClick={() => setAvatarStyle("mannequin")}
                 >
-                  Slate
+                  👗 Dress Form
                 </Button>
-                <Button
-                  variant={themeStyle === "ivory" ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 px-2 text-[11px]"
-                  onClick={() => setThemeStyle("ivory")}
-                >
-                  Ivory
-                </Button>
-                <Button
-                  variant={themeStyle === "wireframe" ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 px-2 text-[11px]"
-                  onClick={() => setThemeStyle("wireframe")}
-                >
-                  Wireframe
-                </Button>
+
+                {avatarStyle === "mannequin" && (
+                  <div className="flex items-center gap-1 pl-1 border-l">
+                    <Button
+                      variant={themeStyle === "tailor" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-6 px-1.5 text-[10px]"
+                      onClick={() => setThemeStyle("tailor")}
+                    >
+                      Classic
+                    </Button>
+                    <Button
+                      variant={themeStyle === "slate" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-6 px-1.5 text-[10px]"
+                      onClick={() => setThemeStyle("slate")}
+                    >
+                      Slate
+                    </Button>
+                    <Button
+                      variant={themeStyle === "ivory" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-6 px-1.5 text-[10px]"
+                      onClick={() => setThemeStyle("ivory")}
+                    >
+                      Ivory
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Element Toggles */}

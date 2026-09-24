@@ -10,6 +10,15 @@ import {
   ThemeStyle,
 } from "./mannequinGeometry"
 import {
+  buildRealisticHumanAvatar,
+  buildRealistic3DGarment,
+  AvatarStyle,
+  SkinTone,
+  SKIN_TONES,
+  FABRIC_COLORS,
+} from "./realisticHumanGeometry"
+import { FabricType } from "./fabricTextures"
+import {
   UnitType,
   FitType,
   formatMeasurementValue,
@@ -26,6 +35,9 @@ import {
   Shield,
   Palette,
   Compass,
+  User,
+  Shirt,
+  Scissors,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +51,16 @@ export interface BodyMannequin3DProps {
   unit?: UnitType
   fitType?: FitType
   themeStyle?: ThemeStyle
+  avatarStyle?: AvatarStyle
+  skinTone?: SkinTone
+  fabricType?: FabricType
+  garmentColor?: number
+  isOpaqueGarment?: boolean
+  onAvatarStyleChange?: (style: AvatarStyle) => void
+  onSkinToneChange?: (tone: SkinTone) => void
+  onFabricTypeChange?: (fabric: FabricType) => void
+  onGarmentColorChange?: (color: number) => void
+  onOpaqueGarmentChange?: (isOpaque: boolean) => void
   showGuides?: boolean
   showGarment?: boolean
   showStand?: boolean
@@ -63,6 +85,16 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       unit = "inches",
       fitType = "regular",
       themeStyle = "tailor",
+      avatarStyle: avatarStyleProp,
+      skinTone: skinToneProp,
+      fabricType: fabricTypeProp,
+      garmentColor: garmentColorProp,
+      isOpaqueGarment: isOpaqueGarmentProp,
+      onAvatarStyleChange,
+      onSkinToneChange,
+      onFabricTypeChange,
+      onGarmentColorChange,
+      onOpaqueGarmentChange,
       showGuides = true,
       showGarment = true,
       showStand = true,
@@ -97,6 +129,46 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
     // Raycasting
     const raycaster = useRef(new THREE.Raycaster())
     const mouse = useRef(new THREE.Vector2())
+
+    // Realistic Avatar & Fabric State (Controlled or Uncontrolled fallback)
+    const [internalAvatarStyle, setInternalAvatarStyle] = useState<AvatarStyle>(avatarStyleProp || "human")
+    const [internalSkinTone, setInternalSkinTone] = useState<SkinTone>(skinToneProp || "medium")
+    const [internalFabricType, setInternalFabricType] = useState<FabricType>(fabricTypeProp || "cotton")
+    const [internalColor, setInternalColor] = useState<number>(garmentColorProp ?? 0x2563eb)
+    const [internalOpaque, setInternalOpaque] = useState<boolean>(isOpaqueGarmentProp ?? true)
+    const [showClothSettings, setShowClothSettings] = useState<boolean>(false)
+
+    const avatarStyle = avatarStyleProp ?? internalAvatarStyle
+    const skinTone = skinToneProp ?? internalSkinTone
+    const fabricType = fabricTypeProp ?? internalFabricType
+    const garmentColor = garmentColorProp ?? internalColor
+    const isOpaqueGarment = isOpaqueGarmentProp ?? internalOpaque
+
+    const handleAvatarStyleChange = (s: AvatarStyle) => {
+      setInternalAvatarStyle(s)
+      onAvatarStyleChange?.(s)
+    }
+
+    const handleSkinToneChange = (t: SkinTone) => {
+      setInternalSkinTone(t)
+      onSkinToneChange?.(t)
+    }
+
+    const handleFabricTypeChange = (f: FabricType) => {
+      setInternalFabricType(f)
+      onFabricTypeChange?.(f)
+    }
+
+    const handleColorChange = (c: number) => {
+      setInternalColor(c)
+      onGarmentColorChange?.(c)
+    }
+
+    const handleOpaqueToggle = () => {
+      const next = !isOpaqueGarment
+      setInternalOpaque(next)
+      onOpaqueGarmentChange?.(next)
+    }
 
     // Convert raw measurement record into numerical values (in inches)
     const parseMeasurements = useCallback((): Record<string, number> => {
@@ -159,7 +231,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       controls.autoRotateSpeed = 1.8
       controlsRef.current = controls
 
-      // Lighting Rig
+      // Lighting Rig - Professional 3-Point Studio Lighting
       const ambientLight = new THREE.AmbientLight(0xffffff, 1.4)
       scene.add(ambientLight)
 
@@ -177,8 +249,8 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       fillLight.position.set(-2.5, 2.0, 1.8)
       scene.add(fillLight)
 
-      // Rim Light (Backlight for silhouette contour)
-      const rimLight = new THREE.DirectionalLight(0xffffff, 1.2)
+      // Rim Light (Backlight for natural human silhouette contour)
+      const rimLight = new THREE.DirectionalLight(0xffffff, 1.3)
       rimLight.position.set(0, 3.0, -2.5)
       scene.add(rimLight)
 
@@ -196,8 +268,11 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       gridHelper.position.y = 0.002
       scene.add(gridHelper)
 
-      // Build Mannequin Geometry
-      const hierarchy = buildParametricMannequin(gender, themeStyle, isWireframe)
+      // Build Realistic Human Avatar OR Parametric Mannequin
+      const hierarchy = avatarStyle === "human"
+        ? buildRealisticHumanAvatar(gender, skinTone, fabricType, garmentColor, isOpaqueGarment, isWireframe)
+        : buildParametricMannequin(gender, themeStyle, isWireframe)
+
       scene.add(hierarchy.rootGroup)
       hierarchyRef.current = hierarchy
 
@@ -243,7 +318,7 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
         renderer.dispose()
         scene.clear()
       }
-    }, [gender, themeStyle, isWireframe])
+    }, [gender, themeStyle, isWireframe, avatarStyle, skinTone, fabricType, garmentColor, isOpaqueGarment])
 
     // Update Auto-Rotate
     useEffect(() => {
@@ -315,17 +390,24 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
         })
       }
 
-      // Rebuild 3D Garment Draping Overlay
+      // Rebuild 3D Garment Draping Overlay / Realistic Clothes
       if (garmentMeshRef.current) {
         hierarchy.rootGroup.remove(garmentMeshRef.current)
       }
       if (showGarment) {
-        const garmentMesh = buildGarmentOverlayMesh(
-          garmentType,
-          gender,
-          hierarchy.materials,
-          parsedValues
-        )
+        const garmentMesh = avatarStyle === "human"
+          ? buildRealistic3DGarment(
+              garmentType,
+              gender,
+              (hierarchy as any).materials,
+              parsedValues
+            )
+          : buildGarmentOverlayMesh(
+              garmentType,
+              gender,
+              hierarchy.materials,
+              parsedValues
+            )
         hierarchy.rootGroup.add(garmentMesh)
         garmentMeshRef.current = garmentMesh
       }
@@ -338,6 +420,11 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
       hoveredField,
       showGuides,
       showGarment,
+      avatarStyle,
+      skinTone,
+      fabricType,
+      garmentColor,
+      isOpaqueGarment,
       parseMeasurements,
     ])
 
@@ -517,26 +604,141 @@ export const BodyMannequin3D = forwardRef<BodyMannequin3DRef, BodyMannequin3DPro
           ))}
         </div>
 
-        {/* Floating Top-Left Garment & Gender HUD */}
-        <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2 pointer-events-auto z-10">
-          <Badge variant="outline" className="bg-background/85 backdrop-blur-md border-border font-semibold shadow-xs">
-            {gender === "Women" ? "👩 Women's Silhouette" : "👨 Men's Silhouette"}
-          </Badge>
-          <Badge variant="secondary" className="bg-background/85 backdrop-blur-md border-border font-semibold shadow-xs">
-            {garmentType}
-          </Badge>
-          <Badge
-            variant="outline"
-            className={
-              fitType === "slim"
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : fitType === "loose"
-                ? "bg-amber-50 text-amber-700 border-amber-200"
-                : "bg-blue-50 text-blue-700 border-blue-200"
-            }
-          >
-            {fitType === "slim" ? "Slim Fit" : fitType === "loose" ? "Relaxed Fit" : "Regular Fit"}
-          </Badge>
+        {/* Floating Top-Left Garment & Avatar Controls */}
+        <div className="absolute top-3 left-3 flex flex-col gap-2 pointer-events-auto z-10 max-w-[280px]">
+          {/* Header Badges */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className="bg-background/90 backdrop-blur-md border-border font-semibold shadow-xs text-[11px]">
+              {gender === "Women" ? "👩 Women" : "👨 Men"}
+            </Badge>
+            <Badge variant="secondary" className="bg-background/90 backdrop-blur-md border-border font-semibold shadow-xs text-[11px]">
+              {garmentType}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`text-[10px] ${
+                fitType === "slim"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : fitType === "loose"
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-blue-50 text-blue-700 border-blue-200"
+              }`}
+            >
+              {fitType === "slim" ? "Slim" : fitType === "loose" ? "Relaxed" : "Regular"}
+            </Badge>
+          </div>
+
+          {/* Model Switcher: Realistic Human vs Dress Form */}
+          <div className="flex items-center gap-1 bg-background/90 backdrop-blur-md p-1 rounded-xl border border-border/80 shadow-md">
+            <Button
+              variant={avatarStyle === "human" ? "default" : "ghost"}
+              size="sm"
+              className="h-6 px-2 text-[11px] font-bold gap-1"
+              onClick={() => handleAvatarStyleChange("human")}
+            >
+              <User className="h-3 w-3" />
+              <span>Human Avatar</span>
+            </Button>
+            <Button
+              variant={avatarStyle === "mannequin" ? "default" : "ghost"}
+              size="sm"
+              className="h-6 px-2 text-[11px] font-semibold gap-1"
+              onClick={() => handleAvatarStyleChange("mannequin")}
+            >
+              <Scissors className="h-3 w-3" />
+              <span>Mannequin</span>
+            </Button>
+            
+            {avatarStyle === "human" && (
+              <Button
+                variant={showClothSettings ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 px-1.5 text-[11px] font-semibold ml-auto"
+                title="Customize Fabric, Skin & Colors"
+                onClick={() => setShowClothSettings(!showClothSettings)}
+              >
+                <Palette className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+
+          {/* Expanded Clothing & Skin Customizer Panel */}
+          {avatarStyle === "human" && showClothSettings && (
+            <div className="flex flex-col gap-2 p-2.5 bg-background/95 backdrop-blur-lg rounded-xl border border-border/90 shadow-xl text-[11px] animate-in fade-in slide-in-from-top-2 duration-150">
+              {/* Complexion / Skin Tone */}
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] font-semibold text-muted-foreground">Skin Tone:</span>
+                <div className="flex items-center gap-1">
+                  {(Object.keys(SKIN_TONES) as SkinTone[]).map((tone) => (
+                    <button
+                      key={tone}
+                      type="button"
+                      onClick={() => handleSkinToneChange(tone)}
+                      title={SKIN_TONES[tone].label}
+                      style={{ backgroundColor: `#${SKIN_TONES[tone].color.toString(16).padStart(6, "0")}` }}
+                      className={`w-4 h-4 rounded-full border transition-all ${
+                        skinTone === tone
+                          ? "ring-2 ring-primary ring-offset-1 scale-110 border-white"
+                          : "border-black/20 opacity-80 hover:opacity-100"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Garment Drape Mode: Opaque Clothes vs Translucent Fit Guide */}
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] font-semibold text-muted-foreground">Cloth View:</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-5 px-1.5 text-[10px] font-medium"
+                  onClick={handleOpaqueToggle}
+                >
+                  {isOpaqueGarment ? "👔 Actual Fabric" : "🔍 Fit X-Ray"}
+                </Button>
+              </div>
+
+              {/* Fabric Weave */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold text-muted-foreground">Fabric Material:</span>
+                <div className="grid grid-cols-3 gap-1">
+                  {(["cotton", "wool", "silk", "linen", "denim"] as FabricType[]).map((f) => (
+                    <Button
+                      key={f}
+                      variant={fabricType === f ? "default" : "outline"}
+                      size="sm"
+                      className="h-5 px-1 text-[9px] capitalize"
+                      onClick={() => handleFabricTypeChange(f)}
+                    >
+                      {f}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Fabric Color Swatches */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold text-muted-foreground">Fabric Color:</span>
+                <div className="flex flex-wrap gap-1 items-center">
+                  {FABRIC_COLORS.map((c) => (
+                    <button
+                      key={c.label}
+                      type="button"
+                      onClick={() => handleColorChange(c.color)}
+                      title={c.label}
+                      style={{ backgroundColor: `#${c.color.toString(16).padStart(6, "0")}` }}
+                      className={`w-4 h-4 rounded-full border transition-all ${
+                        garmentColor === c.color
+                          ? "ring-2 ring-primary ring-offset-1 scale-110 border-white"
+                          : "border-black/20 opacity-80 hover:opacity-100"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Floating Top-Right View Presets Gizmo */}
