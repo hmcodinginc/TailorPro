@@ -68,6 +68,10 @@ export const resetPassword = (data: { token: string; new_password: string }) =>
 export const verifyEmail = (data: { token: string }) =>
   request("/auth/verify-email", { method: "POST", body: jsonBody(data) })
 
+// RESEND VERIFICATION EMAIL
+export const resendVerificationEmail = (data: { email: string }) =>
+  request("/auth/resend-verification", { method: "POST", body: jsonBody(data) })
+
 import type {
   Customer,
   CustomerCreateInput,

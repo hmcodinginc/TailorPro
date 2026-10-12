@@ -5,7 +5,7 @@ import { Scissors, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { loginUser, signupUser, forgotPassword, resetPassword, verifyEmail } from "@/lib/api";
+import { loginUser, signupUser, forgotPassword, resetPassword, verifyEmail, resendVerificationEmail } from "@/lib/api";
 import { PhoneInput } from "@/components/PhoneInput";
 
 
@@ -21,6 +21,7 @@ export default function Auth() {
   
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   
@@ -53,6 +54,23 @@ export default function Auth() {
     setForm({ name: "", business_name: "", phone: "", email: "", password: "", confirm: "" });
   };
 
+  const handleResendVerification = async () => {
+    if (!form.email) {
+      setError("Please enter your email address to receive a verification link.");
+      return;
+    }
+    setResendingEmail(true);
+    clearMessages();
+    try {
+      const res: any = await resendVerificationEmail({ email: form.email });
+      setSuccessMsg(res.message || "Verification email sent. Please check your inbox and spam folder.");
+    } catch (err: any) {
+      setError(err.message || "Failed to resend verification email.");
+    } finally {
+      setResendingEmail(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearMessages();
@@ -73,8 +91,8 @@ export default function Auth() {
           email: form.email,
           password: form.password
         });
-        setSuccessMsg(res.message || "Account created! 7-day free trial activated.");
-        setForm({ name: "", business_name: "", phone: "", email: "", password: "", confirm: "" });
+        setSuccessMsg(res.message || "Account created! A verification link has been sent to your email. Please check your inbox (and spam folder) to verify before logging in.");
+        setForm({ name: "", business_name: "", phone: "", email: form.email, password: "", confirm: "" });
       } else if (mode === "login") {
         const data: any = await loginUser({ email: form.email, password: form.password });
         if (data?.access_token) {
@@ -277,27 +295,51 @@ export default function Auth() {
             {/* MESSAGES */}
             <AnimatePresence>
               {error && (
-                <motion.p
+                <motion.div
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5"
+                  className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 space-y-1.5"
                 >
-                  {error}
-                </motion.p>
+                  <p>{error}</p>
+                  {(error.toLowerCase().includes("verify") || mode === "login") && form.email && (
+                    <div className="pt-1 border-t border-red-200/60">
+                      <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={resendingEmail}
+                        className="text-xs text-sky-700 hover:text-sky-900 font-semibold underline disabled:opacity-50"
+                      >
+                        {resendingEmail ? "Sending verification email..." : "Resend verification email"}
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
               )}
             </AnimatePresence>
             
             <AnimatePresence>
               {successMsg && (
-                <motion.p
+                <motion.div
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="text-sm text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5"
+                  className="text-sm text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 space-y-1"
                 >
-                  {successMsg}
-                </motion.p>
+                  <p>{successMsg}</p>
+                  {form.email && (mode === "signup" || successMsg.toLowerCase().includes("sent")) && (
+                    <div className="pt-1 border-t border-emerald-200/60">
+                      <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={resendingEmail}
+                        className="text-xs text-sky-700 hover:text-sky-900 font-semibold underline disabled:opacity-50"
+                      >
+                        {resendingEmail ? "Sending..." : "Didn't receive it? Resend verification email"}
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
               )}
             </AnimatePresence>
 

@@ -309,13 +309,27 @@ def verify_email(request: schemas.VerifyEmailRequest, db: Session = Depends(get_
     except JWTError:
         raise HTTPException(status_code=400, detail="Invalid or expired verification token.")
 
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = db.query(models.User).filter(func.lower(models.User.email) == email.lower()).first()
     if not user:
         raise HTTPException(status_code=400, detail="User no longer exists.")
 
     user.email_verified = True
     db.commit()
     return {"message": "Email successfully verified!"}
+
+@router.post("/resend-verification")
+def resend_verification(request: schemas.EmailRequest, db: Session = Depends(get_db)):
+    normalized_email = request.email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == normalized_email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Email is not registered in our system.")
+    
+    if user.email_verified:
+        return {"message": "Email is already verified. You can log in."}
+        
+    verify_token = create_reset_token(user.email)
+    send_verification_email(user.email, verify_token)
+    return {"message": "Verification email has been resent. Please check your inbox and spam folder."}
 
 @router.post("/send-otp")
 def send_otp(request: schemas.EmailRequest): # Note: Reused schema for brevity, expecting phone usually

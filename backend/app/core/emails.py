@@ -12,10 +12,12 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "TailorPro <onboarding@resend.dev>")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://tailorpro.hmcoding.com").rstrip("/")
 
-def send_email(to_email: str, subject: str, html_content: str):
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+
+def send_via_resend(to_email: str, subject: str, html_content: str) -> bool:
     if not RESEND_API_KEY:
-        print(f"RESEND_API_KEY is not configured. Skipped sending email to {to_email}.")
-        return
+        return False
 
     payload = {
         "from": FROM_EMAIL,
@@ -36,21 +38,73 @@ def send_email(to_email: str, subject: str, html_content: str):
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=5) as response:
+        with urllib.request.urlopen(req, timeout=8) as response:
             res_body = response.read().decode("utf-8")
             print(f"Email sent successfully to {to_email} via Resend: {res_body}")
+            return True
     except urllib.error.HTTPError as e:
         err_msg = e.read().decode("utf-8")
-        print(f"=====================================")
-        print(f"RESEND HTTP ERROR ({e.code}) TO {to_email}: {err_msg}")
-        print(f"=====================================")
+        print(f"Resend HTTP error ({e.code}) to {to_email}: {err_msg}")
+        return False
     except Exception as e:
-        print(f"=====================================")
-        print(f"RESEND GENERAL ERROR TO {to_email}: {e}")
-        print(f"=====================================")
+        print(f"Resend general error to {to_email}: {e}")
+        return False
+
+def send_via_smtp(to_email: str, subject: str, html_content: str) -> bool:
+    if not SMTP_USER or not SMTP_PASSWORD:
+        return False
+
+    import smtplib
+    from email.message import EmailMessage
+
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = f"TailorPro <{SMTP_USER}>"
+    msg['To'] = to_email
+    msg.set_content("Please view this email in an HTML-compatible email client.")
+    msg.add_alternative(html_content, subtype='html')
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        print(f"Email sent successfully to {to_email} via Gmail SMTP.")
+        return True
+    except Exception as e_ssl:
+        print(f"Gmail SMTP SSL (465) failed: {e_ssl}. Attempting TLS (587)...")
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(msg)
+            print(f"Email sent successfully to {to_email} via Gmail SMTP TLS (587).")
+            return True
+        except Exception as e_tls:
+            print(f"Gmail SMTP TLS (587) failed: {e_tls}")
+            return False
+
+def send_email(to_email: str, subject: str, html_content: str):
+    is_resend_dev = "resend.dev" in FROM_EMAIL.lower()
+
+    # When using the default 'onboarding@resend.dev', Resend only allows sending to its registered account owner
+    # (kalpshah962005@gmail.com). Sending to any other email yields a 403 Forbidden error.
+    # Therefore, when Gmail SMTP is configured, we prioritize SMTP for arbitrary recipients.
+    if SMTP_USER and SMTP_PASSWORD and (is_resend_dev and to_email.lower() != "kalpshah962005@gmail.com"):
+        if send_via_smtp(to_email, subject, html_content):
+            return
+        if RESEND_API_KEY and send_via_resend(to_email, subject, html_content):
+            return
+    else:
+        if RESEND_API_KEY and send_via_resend(to_email, subject, html_content):
+            return
+        if SMTP_USER and SMTP_PASSWORD and send_via_smtp(to_email, subject, html_content):
+            return
+
+    print(f"CRITICAL: Failed to send email to {to_email} via both SMTP and Resend.")
 
 def send_verification_email(to_email: str, token: str):
     link = f"{FRONTEND_URL}/auth?token={token}&action=verify"
+    print(f"Verification link: {link}")
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px;">
         <h2 style="color: #0f172a; margin-top: 0;">Welcome to TailorPro!</h2>
@@ -76,6 +130,7 @@ def send_verification_email(to_email: str, token: str):
 
 def send_password_reset_email(to_email: str, token: str):
     link = f"{FRONTEND_URL}/auth?token={token}&action=reset"
+    print(f"Password reset link: {link}")
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px;">
         <h2 style="color: #0f172a; margin-top: 0;">Reset Your Password</h2>
