@@ -16,18 +16,29 @@ def run_tests():
     initial_password = "initial_password_123"
     new_password = "new_secure_password_456"
 
+    test_phone = str(int(time.time()))[-10:]
     user_data = {
         "name": "Forgot Test User",
         "business_name": "Forgot Test Business",
         "email": test_email,
         "password": initial_password,
-        "phone": "0000000000"
+        "phone": test_phone
     }
 
     # 1. Signup
     r = client.post("/api/auth/signup", json=user_data)
     assert r.status_code == 201, f"Signup failed: {r.text}"
     print("[OK] Test user registered.")
+
+    # Mark user as verified for login
+    from app.database import SessionLocal
+    from app.models import User
+    db = SessionLocal()
+    u = db.query(User).filter(User.email == test_email).first()
+    if u:
+        u.email_verified = True
+        db.commit()
+    db.close()
 
     # 2. Login to get refresh token
     r = client.post("/api/auth/login", json={"email": test_email, "password": initial_password})
