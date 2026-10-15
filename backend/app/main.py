@@ -89,8 +89,25 @@ app.include_router(subscriptions.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
 
+import logging
+from fastapi import Request
+from fastapi.responses import JSONResponse
 
-# Home route
-@app.get("/")
+logger = logging.getLogger(__name__)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled server error on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "A database or server error occurred. Please try again or contact support."},
+    )
+
+# Home & Health routes (supporting both GET and HEAD for Render health checks)
+@app.api_route("/", methods=["GET", "HEAD"])
 def home():
     return {"message": "Tailor Management API Running"}
+
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health():
+    return {"status": "ok"}
