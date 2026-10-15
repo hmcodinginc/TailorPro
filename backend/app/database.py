@@ -61,39 +61,32 @@ else:
             "keepalives_count": 5
         }
     
-    # In development, check if remote DB is reachable; fallback gracefully to SQLite if unreachable
-    if ENVIRONMENT != "production":
-        try:
-            temp_engine = create_engine(
-                DATABASE_URL,
-                pool_pre_ping=True,
-                pool_recycle=300,
-                connect_args=connect_args
-            )
-            with temp_engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            engine = temp_engine
-            print("[INFO] Connected successfully to remote PostgreSQL database.")
-        except Exception as e:
-            print(f"[WARNING] Remote PostgreSQL connection failed ({e}). Falling back to local SQLite './tms.db' for development.")
-            DATABASE_URL = "sqlite:///./tms.db"
-            engine = create_engine(
-                DATABASE_URL,
-                connect_args={"check_same_thread": False}
-            )
-            @event.listens_for(engine, "connect")
-            def set_sqlite_pragma(dbapi_connection, connection_record):
-                cursor = dbapi_connection.cursor()
-                cursor.execute("PRAGMA journal_mode=WAL")
-                cursor.execute("PRAGMA synchronous=NORMAL")
-                cursor.close()
-    else:
-        engine = create_engine(
+    # Test whether remote PostgreSQL database is reachable; fallback gracefully to SQLite if unreachable/expired
+    try:
+        temp_engine = create_engine(
             DATABASE_URL,
             pool_pre_ping=True,
             pool_recycle=300,
             connect_args=connect_args
         )
+        with temp_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        engine = temp_engine
+        print("[INFO] Connected successfully to PostgreSQL database.")
+    except Exception as e:
+        print(f"[CRITICAL WARNING] PostgreSQL connection failed: {e}")
+        print("[FALLBACK] Falling back to SQLite './tms.db' so API remains fully operational.")
+        DATABASE_URL = "sqlite:///./tms.db"
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False}
+        )
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.close()
 
 SessionLocal = sessionmaker(
     autocommit=False,

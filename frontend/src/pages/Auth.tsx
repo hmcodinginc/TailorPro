@@ -65,7 +65,11 @@ export default function Auth() {
       const res: any = await resendVerificationEmail({ email: form.email });
       setSuccessMsg(res.message || "Verification email sent. Please check your inbox and spam folder.");
     } catch (err: any) {
-      setError(err.message || "Failed to resend verification email.");
+      if (err.message === "Failed to fetch" || err.message?.includes("fetch")) {
+        setError("Unable to reach server. If the server is starting up, please wait 30 seconds and try again.");
+      } else {
+        setError(err.message || "Failed to resend verification email.");
+      }
     } finally {
       setResendingEmail(false);
     }
@@ -113,7 +117,11 @@ export default function Auth() {
         }, 3000);
       }
     } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+      if (err.message === "Failed to fetch" || err.message?.includes("fetch")) {
+        setError("Unable to connect to server. If the backend is waking up from idle, please wait 30 seconds and try again.");
+      } else {
+        setError(err.message || "Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
